@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "skill-create": {
+      "source": "skillscatalog/registry",
+      "sourceType": "github",
+      "skillPath": "skills/skill-create/SKILL.md",
+      "computedHash": "bbb5afb33d0226a5bc8eb6441cb13027adbc6ca52a49a8b35e926c677f43ce99"
+    }
+  }
+}
