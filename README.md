@@ -1,119 +1,142 @@
-https://docs.agentscope.io/zh/v2/building-blocks/message-and-event
+# CloudAgents
 
-> ## Documentation Index
-> Fetch the complete documentation index at: https://docs.agentscope.io/llms.txt
-> Use this file to discover all available pages before exploring further.
+基于 AgentScope 2.0 的多 Agent 管理平台，提供 Web UI 进行 Agent 创建、对话、工具管理等操作。
 
-# Quickstart
+## 项目结构
 
-> Get up and running with AgentScope 2.0 in minutes
-
-## Installation
-
-AgentScope requires Python 3.11+, and you can install it from PyPI or from source.
-
-It's recommended to install AgentScope by using [uv](https://github.com/astral-sh/uv).
-
-### From PyPI
-
-```bash theme={null}
-uv pip install agentscope
+```
+├── agent_service/      # Python 后端服务（FastAPI + Redis）
+├── web_ui/             # 前端（React/Vite）+ Node.js 后端
+│   ├── frontend/       # React + TypeScript + Tailwind CSS
+│   └── backend/        # Node.js 中间层
+├── src/agentscope/     # AgentScope 2.0 核心库（依赖）
+├── docs/               # 设计文档
+├── logo/               # Logo 资源
+├── demo/               # 示例脚本
+└── manager.sh          # 一键启停脚本
 ```
 
-### From Source
+## 环境要求
 
-```bash theme={null}
-git clone -b main https://github.com/agentscope-ai/agentscope
-cd agentscope
-uv pip install -e .
+| 依赖 | 版本 |
+|------|------|
+| Python | >= 3.11 |
+| Node.js | >= 18 |
+| pnpm | >= 8 |
+| Redis | >= 6 |
+| Conda（推荐） | 任意版本 |
+
+## 快速部署
+
+### 1. 克隆仓库
+
+```bash
+git clone https://github.com/firewolf189/CloudAgents.git
+cd CloudAgents
 ```
 
-### Verify Installation
+### 2. 安装 AgentScope 核心库
 
-To ensure AgentScope is installed successfully, check via executing the following code:
-
-```python theme={null}
-import agentscope
-
-print(agentscope.__version__)
+```bash
+cd src/agentscope
+conda create -n agentscope python=3.11 -y
+conda activate agentscope
+uv pip install -e .[full]
+cd ../..
 ```
 
-## Your First Agent
+### 3. 启动 Redis
 
-The snippet below builds the minimal agent: a DashScope credential, the matching chat model, an empty toolkit, and an `Agent`. The agent exposes two entry points — `reply` returns the final message, while `reply_stream` yields incremental events as the agent reasons and acts.
+```bash
+# macOS
+brew install redis
+brew services start redis
 
-```python theme={null}
-import asyncio
-import os
-
-from agentscope.agent import Agent
-from agentscope.credential import DashScopeCredential
-from agentscope.event import EventType
-from agentscope.message import UserMsg
-from agentscope.model import DashScopeChatModel
-from agentscope.tool import Toolkit, Bash, Read, Write, Edit
-
-
-async def main() -> None:
-    agent = Agent(
-        name="Friday",
-        system_prompt="You are a helpful assistant named Friday.",
-        model=DashScopeChatModel(
-            credential=DashScopeCredential(
-                api_key=os.getenv("DASHSCOPE_API_KEY"),
-            ),
-            model="qwen-plus",
-        ),
-        toolkit=Toolkit(tools=[Bash(), Read(), Write(), Edit()]),
-    )
-
-    user_msg = UserMsg(name="user", content="Hello, who are you?")
-
-    # Option 1: await the final assistant message.
-    reply_msg = await agent.reply(user_msg)
-    # `reply_msg` is an `AssistantMsg` whose `content` is a list of blocks.
-    # Inspect text blocks, tool calls, etc. as needed.
-    ...
-
-    # Option 2: stream incremental events (text deltas, tool calls, ...).
-    async for event in agent.reply_stream(user_msg):
-        # Dispatch on `event.type` — each branch handles one event kind.
-        match event.type:
-            case EventType.TEXT_BLOCK_DELTA:
-                # Streaming text chunk from the model — append to UI / stdout.
-                ...
-            case EventType.TOOL_CALL_START:
-                # The agent is about to invoke a tool — surface the call.
-                ...
-            case _:
-                # Other events: thinking blocks, tool results, reply end, ...
-                ...
-
-
-asyncio.run(main())
+# Linux
+sudo apt install redis-server
+sudo systemctl start redis
 ```
 
-<Tip>
-  Set `DASHSCOPE_API_KEY` in your environment before running the script. To use a different provider, swap `DashScopeCredential` and `DashScopeChatModel` for the matching pair (e.g. `OpenAICredential` and `OpenAIChatModel`).
-</Tip>
+确认 Redis 运行在 `localhost:6379`。
 
-## Extra Dependencies
+### 4. 启动后端服务（agent_service）
 
-To satisfy the requirements of different functionalities, AgentScope provides extra dependencies that can be installed based on your needs.
-
-* **full**: including extra dependencies for model APIs, tool functions and more.
-* **dev**: development dependencies, including testing and documentation tools.
-
-For example, when installing the full dependencies, the installation command varies depending on your operating system.
-
-* For Windows users:
-
-```bash theme={null}
-uv pip install agentscope[full]
+```bash
+conda activate agentscope
+cd agent_service
+python main.py
 ```
 
-* For Mac and Linux users:
+服务启动在 `http://localhost:8300`。
 
-```bash theme={null}
-uv pip install agentscope\[full\]
+### 5. 安装并启动前端
+
+```bash
+cd web_ui
+pnpm install
+pnpm dev
 ```
+
+- 前端：`http://localhost:5173`
+- Node 后端：`http://localhost:3000`
+
+### 6. 访问
+
+浏览器打开 `http://localhost:5173`，输入服务器地址 `http://localhost:8300` 和用户名即可使用。
+
+## 一键管理
+
+项目提供 `manager.sh` 脚本，支持一键启停所有服务：
+
+```bash
+# 启动所有服务
+bash manager.sh start all
+
+# 停止所有服务
+bash manager.sh stop all
+
+# 重启所有服务
+bash manager.sh restart all
+
+# 仅操作后端 / 前端
+bash manager.sh start backend
+bash manager.sh restart frontend
+
+# 查看状态
+bash manager.sh status
+
+# 查看日志
+bash manager.sh logs all
+```
+
+> `manager.sh` 默认使用 conda 环境 `agentscope`，可通过环境变量 `CONDA_ENV` 修改。
+
+## 端口配置
+
+| 服务 | 默认端口 | 环境变量 |
+|------|----------|----------|
+| agent_service | 8300 | `AGENT_PORT` |
+| Node 后端 | 3000 | `NODE_PORT` |
+| Vite 前端 | 5173 | `VITE_PORT` |
+
+可在项目根目录创建 `.env` 文件覆盖：
+
+```env
+AGENT_PORT=8300
+NODE_PORT=3000
+VITE_PORT=5173
+CONDA_ENV=agentscope
+```
+
+## 模型配置
+
+首次使用需要在「凭证」页面添加模型供应商的 API Key。支持的供应商：
+
+- DashScope（通义千问）
+- OpenAI
+- Anthropic
+- Gemini
+- DeepSeek
+- Moonshot
+- Ollama
+- xAI
