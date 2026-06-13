@@ -25,7 +25,7 @@ NODE_PORT="${NODE_PORT:-3000}"
 VITE_PORT="${VITE_PORT:-5173}"
 
 # ---------- Python 环境 (按需修改) ----------
-CONDA_ENV="${CONDA_ENV:-cloudagents}"
+CONDA_ENV="${CONDA_ENV:-agentscope}"
 
 LOG_DIR="$ROOT_DIR/logs"
 mkdir -p "$LOG_DIR"

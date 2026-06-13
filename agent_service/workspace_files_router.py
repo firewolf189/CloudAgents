@@ -1,12 +1,14 @@
 # -*- coding: utf-8 -*-
 """Workspace file-browsing router — list files and directories."""
+import io
 import mimetypes
 import os
+import zipfile
 from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 
 workspace_files_router = APIRouter(
@@ -263,20 +265,14 @@ async def raw_file(
     agent_id: str = Query(...),
     session_id: str = Query(...),
     path: str = Query(...),
-    user_id: str = Query(None),
-    request: Request = None,
+    download: bool = Query(False),
+    user_id: str = Depends(_get_user_id),
     storage: Any = Depends(_get_storage),
     workspace_manager: Any = Depends(_get_workspace_manager),
 ) -> FileResponse:
     """Serve a workspace file with its native MIME type (images, etc.)."""
-    uid = user_id or request.headers.get("X-User-ID", "")
-    if not uid:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="user_id is required.",
-        )
     workdir = await _resolve_workdir(
-        uid, agent_id, session_id, storage, workspace_manager,
+        user_id, agent_id, session_id, storage, workspace_manager,
     )
 
     if ".." in path.split("/"):
@@ -306,4 +302,74 @@ async def raw_file(
         )
 
     media_type = mimetypes.guess_type(target)[0] or "application/octet-stream"
-    return FileResponse(target, media_type=media_type)
+    filename = os.path.basename(target)
+    headers = {}
+    if download:
+        headers["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return FileResponse(target, media_type=media_type, headers=headers)
+
+
+MAX_DIR_SIZE = 50 * 1024 * 1024  # 50 MB
+
+
+@workspace_files_router.get("/download-dir")
+async def download_dir(
+    agent_id: str = Query(...),
+    session_id: str = Query(...),
+    path: str = Query(""),
+    user_id: str = Depends(_get_user_id),
+    storage: Any = Depends(_get_storage),
+    workspace_manager: Any = Depends(_get_workspace_manager),
+) -> StreamingResponse:
+    """Download a workspace directory as a zip archive."""
+    workdir = await _resolve_workdir(
+        user_id, agent_id, session_id, storage, workspace_manager,
+    )
+
+    if ".." in path.split("/"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Path traversal is not allowed.",
+        )
+
+    target = os.path.realpath(os.path.join(workdir, path))
+    workdir_real = os.path.realpath(workdir)
+    if not target.startswith(workdir_real):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Path is outside the workspace.",
+        )
+
+    if not os.path.isdir(target):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Directory not found: {path!r}",
+        )
+
+    total_size = 0
+    for dirpath, _dirnames, filenames in os.walk(target):
+        for f in filenames:
+            total_size += os.path.getsize(os.path.join(dirpath, f))
+    if total_size > MAX_DIR_SIZE:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="Directory too large to download (max 50 MB).",
+        )
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for dirpath, _dirnames, filenames in os.walk(target):
+            for f in filenames:
+                full = os.path.join(dirpath, f)
+                arcname = os.path.relpath(full, target)
+                zf.write(full, arcname)
+    buf.seek(0)
+
+    dirname = os.path.basename(target) or "workspace"
+    return StreamingResponse(
+        buf,
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": f'attachment; filename="{dirname}.zip"',
+        },
+    )

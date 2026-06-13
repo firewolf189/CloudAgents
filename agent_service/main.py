@@ -48,6 +48,11 @@ class AuthMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         auth_header = request.headers.get("Authorization", "")
+        # Allow token via query param for endpoints that load via <img>/<iframe>
+        if not auth_header.startswith("Bearer "):
+            query_token = request.query_params.get("token")
+            if query_token:
+                auth_header = f"Bearer {query_token}"
         if not auth_header.startswith("Bearer "):
             return Response(
                 content='{"detail":"Authorization header required."}',

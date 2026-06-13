@@ -3,6 +3,7 @@ import 'highlight.js/styles/github.css';
 import {
 	ChevronRight,
 	Code2,
+	Download,
 	Eye,
 	FileText,
 	Folder,
@@ -16,7 +17,7 @@ import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } fro
 
 import type { FileEntry } from '@/api';
 import { workspaceApi } from '@/api';
-import { getBaseUrl, getUserId } from '@/api/client';
+import { getAuthToken, getBaseUrl } from '@/api/client';
 import { Button } from '@/components/ui/button';
 import {
 	Drawer,
@@ -129,8 +130,39 @@ function buildRawUrl(agentId: string, sessionId: string, path: string): string {
 	url.searchParams.set('agent_id', agentId);
 	url.searchParams.set('session_id', sessionId);
 	url.searchParams.set('path', path);
-	url.searchParams.set('user_id', getUserId());
+	url.searchParams.set('token', getAuthToken());
 	return url.toString();
+}
+
+function buildDownloadFileUrl(agentId: string, sessionId: string, path: string): string {
+	const url = new URL('/workspace/file-raw', getBaseUrl());
+	url.searchParams.set('agent_id', agentId);
+	url.searchParams.set('session_id', sessionId);
+	url.searchParams.set('path', path);
+	url.searchParams.set('download', 'true');
+	url.searchParams.set('token', getAuthToken());
+	return url.toString();
+}
+
+function buildDownloadDirUrl(agentId: string, sessionId: string, path: string): string {
+	const url = new URL('/workspace/download-dir', getBaseUrl());
+	url.searchParams.set('agent_id', agentId);
+	url.searchParams.set('session_id', sessionId);
+	url.searchParams.set('path', path);
+	url.searchParams.set('token', getAuthToken());
+	return url.toString();
+}
+
+function triggerDownload(url: string, filename: string) {
+	fetch(url)
+		.then((res) => res.blob())
+		.then((blob) => {
+			const a = document.createElement('a');
+			a.href = URL.createObjectURL(blob);
+			a.download = filename;
+			a.click();
+			URL.revokeObjectURL(a.href);
+		});
 }
 
 type ViewMode = 'preview' | 'code' | 'edit';
@@ -327,34 +359,70 @@ export function WorkspaceFilesDrawer({
 										return (
 											<li key={entry.name}>
 												{entry.type === 'directory' ? (
-													<button
-														type="button"
-														onClick={() => navigateTo(entryPath)}
-														className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md hover:bg-accent transition-colors text-left"
-													>
-														<Folder className="size-4 text-blue-500 shrink-0" />
-														<span className="truncate flex-1 text-sm">
-															{entry.name}
-														</span>
-													</button>
+													<div className="flex items-center gap-1 w-full group">
+														<button
+															type="button"
+															onClick={() => navigateTo(entryPath)}
+															className="flex items-center gap-2 flex-1 min-w-0 px-2 py-1.5 rounded-md hover:bg-accent transition-colors text-left"
+														>
+															<Folder className="size-4 text-blue-500 shrink-0" />
+															<span className="truncate flex-1 text-sm">
+																{entry.name}
+															</span>
+														</button>
+														{agentId && sessionId && (
+															<button
+																type="button"
+																onClick={(e) => {
+																	e.stopPropagation();
+																	triggerDownload(
+																		buildDownloadDirUrl(agentId, sessionId, entryPath),
+																		`${entry.name}.zip`,
+																	);
+																}}
+																className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-accent shrink-0"
+																title="下载文件夹"
+															>
+																<Download className="size-3.5 text-muted-foreground" />
+															</button>
+														)}
+													</div>
 												) : (
-													<button
-														type="button"
-														onClick={() => handleFileClick(entry.name)}
-														className={`flex items-center gap-2 w-full px-2 py-1.5 rounded-md transition-colors text-left ${
-															isSelected
-																? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
-																: 'hover:bg-accent'
-														}`}
-													>
-														<FileText className="size-4 text-muted-foreground shrink-0" />
-														<span className="truncate flex-1 text-sm">
-															{entry.name}
-														</span>
-														<span className="text-xs text-muted-foreground shrink-0">
-															{formatSize(entry.size)}
-														</span>
-													</button>
+													<div className="flex items-center gap-1 w-full group">
+														<button
+															type="button"
+															onClick={() => handleFileClick(entry.name)}
+															className={`flex items-center gap-2 flex-1 min-w-0 px-2 py-1.5 rounded-md transition-colors text-left ${
+																isSelected
+																	? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+																	: 'hover:bg-accent'
+															}`}
+														>
+															<FileText className="size-4 text-muted-foreground shrink-0" />
+															<span className="truncate flex-1 text-sm">
+																{entry.name}
+															</span>
+															<span className="text-xs text-muted-foreground shrink-0">
+																{formatSize(entry.size)}
+															</span>
+														</button>
+														{agentId && sessionId && (
+															<button
+																type="button"
+																onClick={(e) => {
+																	e.stopPropagation();
+																	triggerDownload(
+																		buildDownloadFileUrl(agentId, sessionId, entryPath),
+																		entry.name,
+																	);
+																}}
+																className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-accent shrink-0"
+																title="下载文件"
+															>
+																<Download className="size-3.5 text-muted-foreground" />
+															</button>
+														)}
+													</div>
 												)}
 											</li>
 										);

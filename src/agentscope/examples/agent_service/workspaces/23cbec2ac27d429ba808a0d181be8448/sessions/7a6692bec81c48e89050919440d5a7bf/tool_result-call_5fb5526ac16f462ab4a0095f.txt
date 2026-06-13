@@ -1,0 +1,153 @@
+											variant="outline"
+   291													size="sm"
+   292													disabled={!urlAgentId}
+   293													onClick={handleCreateSession}
+   294												>
+   295													Create Session
+   296												</Button>
+   297											</EmptyContent>
+   298										</Empty>
+   299									) : (
+   300										<SidebarMenu>
+   301											{sessions.map((view) => {
+   302												const session = view.session;
+   303												return (
+   304													<SidebarMenuItem key={session.id}>
+   305														<SidebarMenuButton
+   306															isActive={urlSessionId === session.id}
+   307															onClick={() =>
+   308																navigate(
+   309																	`/chat/${urlAgentId}/${session.id}`,
+   310																)
+   311															}
+   312														>
+   313															{hasScheduleSessions &&
+   314																(session.source === 'schedule' ? (
+   315																	<CalendarClock />
+   316																) : (
+   317																	<BotMessageSquare />
+   318																))}
+   319															<span className="truncate">
+   320																{session.config.name || session.id}
+   321															</span>
+   322														</SidebarMenuButton>
+   323														<SidebarMenuAction showOnHover>
+   324															<DropdownMenu>
+   325																<DropdownMenuTrigger asChild>
+   326																	<Ellipsis />
+   327																</DropdownMenuTrigger>
+   328																<DropdownMenuContent
+   329																	side="right"
+   330																	align="start"
+   331																>
+   332																	<DropdownMenuItem
+   333																		onClick={() => {
+   334																			setRenameSession(session);
+   335																			setRenameOpen(true);
+   336																		}}
+   337																	>
+   338																		<Pencil />
+   339																		{t('session-menu.rename')}
+   340																	</DropdownMenuItem>
+   341																	<DropdownMenuItem
+   342																		variant="destructive"
+   343																		onClick={() =>
+   344																			requestDeleteSession(
+   345																				session,
+   346																			)
+   347																		}
+   348																	>
+   349																		<Trash2 />
+   350																		{t('session-menu.delete')}
+   351																	</DropdownMenuItem>
+   352																</DropdownMenuContent>
+   353															</DropdownMenu>
+   354														</SidebarMenuAction>
+   355													</SidebarMenuItem>
+   356												);
+   357											})}
+   358										</SidebarMenu>
+   359									)}
+   360								</SidebarGroupContent>
+   361							</SidebarGroup>
+   362						</SidebarContent>
+   363						<SidebarFooter />
+   364					</Sidebar>
+   365				)}
+   366				{/*
+   367				 * Team sidebar lives at the outer page level (not inside
+   368				 * ChatViewport) so navigating between leader and member
+   369				 * sessions does NOT unmount it. The team data comes from
+   370				 * the leader's session view, which is stable across that
+   371				 * navigation; only `currentSessionId` changes to drive
+   372				 * row highlighting.
+   373				 */}
+   374				{currentView?.team && effectiveSessionId && (
+   375					<TeamSidebar team={currentView.team} currentSessionId={effectiveSessionId} />
+   376				)}
+   377				<div className="flex flex-1 min-w-0">
+   378					<ChatViewport
+   379						agentId={effectiveAgentId}
+   380						sessionId={effectiveSessionId}
+   381						onTeamUpdated={refetchSessions}
+   382					/>
+   383				</div>
+   384				{selectedAgent && (
+   385					<>
+   386						<EditAgentDialog
+   387							open={editOpen}
+   388							onOpenChange={setEditOpen}
+   389							agent={selectedAgent}
+   390							onUpdated={refetchAgents}
+   391						/>
+   392						<DeleteDialog
+   393							open={deleteOpen}
+   394							onOpenChange={setDeleteOpen}
+   395							title={t('common.deleteTitle', {
+   396								entity: t('dialog-agent-delete.entity'),
+   397								name: selectedAgent.data.name,
+   398							})}
+   399							description={t('common.deleteDescription')}
+   400							confirmLabel={t('dialog-agent-delete.confirm')}
+   401							onConfirm={async () => {
+   402								await removeAgent(selectedAgent.id);
+   403								await handleAgentDeleted();
+   404							}}
+   405						/>
+   406					</>
+   407				)}
+   408				<RenameSessionDialog
+   409					open={renameOpen}
+   410					onOpenChange={setRenameOpen}
+   411					currentName={renameSession?.config.name ?? renameSession?.id ?? ''}
+   412					onConfirm={handleRenameConfirm}
+   413				/>
+   414				<DeleteDialog
+   415					open={deleteSessionOpen}
+   416					onOpenChange={setDeleteSessionOpen}
+   417					title={t('common.deleteTitle', {
+   418						entity: t('dialog-session-delete.entity'),
+   419						name: sessionToDelete?.config.name || sessionToDelete?.id || '',
+   420					})}
+   421					description={t('common.deleteDescription')}
+   422					confirmLabel={t('dialog-session-delete.confirm')}
+   423					onConfirm={async () => {
+   424						if (sessionToDelete) {
+   425							await handleDeleteSession(sessionToDelete.id);
+   426						}
+   427					}}
+   428				/>
+   429				<ChatTourController
+   430					agentsCount={agents.length}
+   431					sessionsCount={sessions.length}
+   432					onEnsureSidebarOpen={() => setSidebarOpen(true)}
+   433				/>
+   434			</div>
+   435		);
+   436	};
+   437	
+   438	export const ChatPage = () => (
+   439		<AudioProvider>
+   440			<ChatPageInner />
+   441		</AudioProvider>
+   442	);

@@ -1,5 +1,7 @@
 # agent_service dependencies
-agentscope[full]>=2.0
+# agentscope 需要从官方仓库源码安装（PyPI 版本不含 app 模块）:
+#   git clone https://github.com/agentscope-ai/agentscope.git src/agentscope
+#   cd src/agentscope && pip install -e .[full]
 
 # Web framework
 fastapi>=0.115
