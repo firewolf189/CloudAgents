@@ -22,8 +22,13 @@ function Sidebar() {
   return (
     <aside className="w-56 bg-sidebar border-r flex flex-col h-screen shrink-0">
       <div className="p-4 border-b">
-        <h1 className="text-lg font-bold text-sidebar-foreground">CloudAgents</h1>
-        <p className="text-xs text-muted-foreground">Admin Portal</p>
+        <div className="flex items-center gap-2">
+          <img src="/logo_dark_touxiang.png" alt="Logo" className="size-7 rounded-lg" />
+          <div>
+            <h1 className="text-base font-bold text-sidebar-foreground leading-tight">CloudAgents</h1>
+            <p className="text-xs text-muted-foreground">Admin Portal</p>
+          </div>
+        </div>
       </div>
       <nav className="flex-1 p-2 space-y-1">
         {nav.map((item) => {

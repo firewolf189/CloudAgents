@@ -4,12 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Layout
 
-This is a monorepo for **AgentScope 2.0**, a multi-agent platform by Alibaba Tongyi Lab. It contains:
+This is a monorepo for **CloudAgents**, a multi-agent platform built on AgentScope 2.0. It contains:
 
-- `agent_service/` — FastAPI service wiring up the core library with Redis storage, message bus, and workspace management. Main development target.
-- `web_ui/` — pnpm monorepo (frontend: React/Vite/TypeScript, backend: Node/TypeScript). Main development target.
+- `agent_service/` — FastAPI service wiring up the core library with Redis storage, message bus, and workspace management. Department-level backend.
+- `web_ui/` — pnpm monorepo (frontend: React/Vite/TypeScript, backend: Node/TypeScript). Department-level frontend.
+- `admin_portal/` — Enterprise admin portal (FastAPI backend + React frontend). Manages multiple department backends.
 - `demo/` — standalone demo scripts showing agent usage patterns.
-- `src/agentscope/` — upstream AgentScope 2.0 core Python library (参考用，不在此目录开发).
+- `src/agentscope/` — AgentScope 2.0 core Python library (bundled source, installed via `pip install -e ".[full]"`).
 
 ## Build & Development Commands
 
@@ -54,10 +55,16 @@ python main.py                    # starts FastAPI on port 8300 (requires Redis 
 ### Service Management
 
 ```bash
+# Department services (from project root)
 bash manager.sh start all         # start all services
 bash manager.sh restart backend   # restart agent_service only
 bash manager.sh status            # check running status
 bash manager.sh logs all          # tail all logs
+
+# Admin portal (from admin_portal/)
+bash manager.sh start all         # backend(:8080) + frontend(:5180)
+bash manager.sh restart backend   # restart portal backend only
+bash manager.sh status
 ```
 
 ## Architecture
@@ -142,6 +149,27 @@ Department-level user management layered on top of the core library (no changes 
 - **`components/dialog/SetCredentialsDialog.tsx`** — Set username/password dialog; auto-prompted for employees on first token login.
 - **`components/layout/AppSidebar.tsx`** — Role-based navigation: admin sees credential + user management; employee sees chat + schedule only. All users see "set password" button.
 - **`components/tour/`** — Role-specific onboarding tours: admin tour includes "create agent" step; employee tour starts with "select agent".
+
+### Admin Portal (`admin_portal/`)
+
+Enterprise management plane for managing multiple department backends. Independent project, does not modify agent_service or web_ui.
+
+**Backend (`admin_portal/backend/`):**
+- **`db.py`** — SQLite storage for department registrations and orchestration logs.
+- **`auth.py` + `auth_router.py`** — Super admin JWT authentication (env-var: `SUPER_ADMIN_USERNAME`, `SUPER_ADMIN_PASSWORD`, `JWT_SECRET`).
+- **`department_router.py`** — Department CRUD: register backend URL + frontend URL + admin credentials, health check, test connection, get department JWT token for auto-login.
+- **`department_client.py`** — HTTP client for calling department backend APIs (login, get agents/users, create session, send message, poll reply).
+- **`dashboard_router.py`** — Aggregates data from all departments (online status, agent count, user count). `GET /dashboard/agents` returns all agents grouped by department.
+- **`orchestrate_router.py`** — Cross-department orchestration: send same prompt to multiple department agents in parallel, collect results, save execution history.
+- **`chat_proxy_router.py`** — Chat proxy: create session, send message, get messages from department backends.
+- **`main.py`** — FastAPI entry, port 8080.
+
+**Frontend (`admin_portal/frontend/`):**
+- **Dashboard** — Stats cards (departments, agents, users, online) + department status list.
+- **Agent Overview** — All agents grouped by department. "Open Chat" button auto-logins to department frontend via URL token param.
+- **Department Management** — Table with CRUD, test connection, edit dialog with frontend_url field.
+- **Cross-department Orchestration** — Select departments, input prompt, execute, view results and history.
+- **Auto-login flow** — Admin portal gets department JWT via `GET /departments/{id}/token`, opens `{frontend_url}/chat/{agentId}?auto_token=xxx&server_url=xxx`. Department frontend's `main.tsx` detects params and writes to localStorage before React init.
 
 ### MCP Integration (`mcp/`)
 
