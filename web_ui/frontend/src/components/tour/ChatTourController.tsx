@@ -1,7 +1,8 @@
 import { useOnborda } from 'onborda';
 import { useEffect, useRef } from 'react';
 
-import { CHAT_TOUR_NAME } from './chatTourSteps';
+import { CHAT_TOUR_NAME, EMPLOYEE_TOUR_NAME } from './chatTourSteps';
+import { useAuth } from '@/context/AuthContext';
 
 interface Props {
 	agentsCount: number;
@@ -17,6 +18,9 @@ export const ChatTourController = ({ agentsCount, sessionsCount, onEnsureSidebar
 	const { currentStep, currentTour, setCurrentStep, startOnborda } = useOnborda();
 	const startCountsRef = useRef({ agents: agentsCount, sessions: sessionsCount });
 	const startedRef = useRef(false);
+	const { isAdmin } = useAuth();
+
+	const tourName = isAdmin ? CHAT_TOUR_NAME : EMPLOYEE_TOUR_NAME;
 
 	// Auto-start on mount: first-time visitors, or manual trigger via sessionStorage.
 	useEffect(() => {
@@ -27,10 +31,11 @@ export const ChatTourController = ({ agentsCount, sessionsCount, onEnsureSidebar
 		if (!force && done) return;
 		startedRef.current = true;
 		onEnsureSidebarOpen?.();
-		// Defer one tick so target elements are mounted.
-		const id = window.setTimeout(() => startOnborda(CHAT_TOUR_NAME), 300);
+		const id = window.setTimeout(() => startOnborda(tourName), 300);
 		return () => window.clearTimeout(id);
-	}, [onEnsureSidebarOpen, startOnborda]);
+	}, [onEnsureSidebarOpen, startOnborda, tourName]);
+
+	// --- Admin-only auto-advance logic below ---
 
 	// Snapshot the agents/sessions count when entering each step so we can
 	// detect "user just created one" rather than "they already had some."
@@ -52,10 +57,6 @@ export const ChatTourController = ({ agentsCount, sessionsCount, onEnsureSidebar
 		if (currentTour !== CHAT_TOUR_NAME || currentStep !== 1) return;
 		if (sessionsCount > startCountsRef.current.sessions) setCurrentStep(2);
 	}, [sessionsCount, currentStep, currentTour, setCurrentStep]);
-
-	// Mark tour as done when finished — triggered when the user reaches the last step
-	// and the cards's Finish button calls closeOnborda (which sets the flag inside TourCard).
-	// Nothing else to do here.
 
 	return null;
 };

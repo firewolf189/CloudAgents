@@ -10,11 +10,12 @@ import {
 	Settings2,
 	Trash2,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import { ChatViewport } from './ChatViewport';
 import type { SessionRecord } from '@/api';
+import { userApi } from '@/api';
 import { AgentDialog } from '@/components/dialog/AgentDialog';
 import { DeleteDialog } from '@/components/dialog/DeleteDialog';
 import { EditAgentDialog } from '@/components/dialog/EditAgentDialog';
@@ -58,6 +59,7 @@ import {
 	SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { AudioProvider } from '@/context/AudioContext';
+import { useAuth } from '@/context/AuthContext';
 import { useAgents } from '@/hooks/useAgents';
 import { useSessions } from '@/hooks/useSessions';
 import { useTranslation } from '@/i18n/useI18n.ts';
@@ -95,7 +97,27 @@ const ChatPageInner = () => {
 		memberId?: string;
 	}>();
 	const { t } = useTranslation();
-	const { agents, refetch: refetchAgents, remove: removeAgent } = useAgents();
+	const { isAdmin, user } = useAuth();
+	const { agents: allAgents, refetch: refetchAgents, remove: removeAgent } = useAgents();
+
+	// Employee: filter to only assigned agents
+	const [assignedIds, setAssignedIds] = useState<Set<string> | null>(null);
+	useEffect(() => {
+		if (isAdmin) {
+			setAssignedIds(null);
+			return;
+		}
+		userApi.listAssignments().then((list) => {
+			setAssignedIds(new Set(list.filter((a) => a.assigned_to === user?.user_id).map((a) => a.agent_id)));
+		}).catch(() => setAssignedIds(new Set()));
+	}, [isAdmin, user?.user_id]);
+
+	const agents = useMemo(() => {
+		if (isAdmin) return allAgents;
+		if (!assignedIds) return [];
+		return allAgents.filter((a) => assignedIds.has(a.id));
+	}, [allAgents, assignedIds, isAdmin]);
+
 	const {
 		sessions,
 		refetch: refetchSessions,
@@ -132,12 +154,20 @@ const ChatPageInner = () => {
 			? focusedMember.session_id
 			: (urlSessionId ?? null);
 
-	// Redirect: URL is missing an agent → pick the first one and rewrite
-	// the URL in-place (replace so we don't pollute history).
+	// Redirect: URL is missing an agent, or current agent is not in the
+	// visible list (e.g. employee seeing an unassigned agent from a stale
+	// URL) → pick the last used agent or the first visible one.
 	useEffect(() => {
-		if (!urlAgentId && agents.length > 0) {
-			navigate(`/chat/${agents[0].id}`, { replace: true });
+		if (agents.length === 0) return;
+		if (urlAgentId && agents.some((a) => a.id === urlAgentId)) {
+			sessionStorage.setItem('last_agent_id', urlAgentId);
+			return;
 		}
+		const lastAgentId = sessionStorage.getItem('last_agent_id');
+		const target = (lastAgentId && agents.some((a) => a.id === lastAgentId))
+			? lastAgentId
+			: agents[0].id;
+		navigate(`/chat/${target}`, { replace: true });
 	}, [agents, urlAgentId, navigate]);
 
 	// Redirect: URL has an agent but no session, or its sessionId no
@@ -220,7 +250,7 @@ const ChatPageInner = () => {
 									<PanelLeftClose className="size-3.5" />
 								</Button>
 							</div>
-							<div className="flex flex-row gap-x-2 items-center">
+							<div id="tour-select-agent" className="flex flex-row gap-x-2 items-center">
 								<Select
 									value={urlAgentId ?? ''}
 									onValueChange={(id) => navigate(`/chat/${id}`)}
@@ -259,16 +289,20 @@ const ChatPageInner = () => {
 								>
 									<Settings2 />
 								</Button>
-								<Button
-									size="icon"
-									variant="ghost"
-									disabled={!urlAgentId}
-									onClick={() => setDeleteOpen(true)}
-								>
-									<Trash2 className="text-destructive" />
-								</Button>
+								{isAdmin && (
+									<Button
+										size="icon"
+										variant="ghost"
+										disabled={!urlAgentId}
+										onClick={() => setDeleteOpen(true)}
+									>
+										<Trash2 className="text-destructive" />
+									</Button>
+								)}
 							</div>
-							<AgentDialog onCreated={refetchAgents} triggerId="tour-create-agent" />
+							{isAdmin && (
+								<AgentDialog onCreated={refetchAgents} triggerId="tour-create-agent" />
+							)}
 						</div>
 					</SidebarHeader>
 					<SidebarContent className="my-5">

@@ -46,7 +46,18 @@ pnpm format:check     # CI check
 
 ```bash
 cd agent_service
-python main.py        # starts FastAPI on port 8300 (requires Redis on localhost:6379)
+pip install -r requirements.txt   # install dependencies (includes agentscope[full])
+cp .env.example .env              # configure admin credentials
+python main.py                    # starts FastAPI on port 8300 (requires Redis on localhost:6379)
+```
+
+### Service Management
+
+```bash
+bash manager.sh start all         # start all services
+bash manager.sh restart backend   # restart agent_service only
+bash manager.sh status            # check running status
+bash manager.sh logs all          # tail all logs
 ```
 
 ## Architecture
@@ -95,6 +106,42 @@ Sandboxed execution environments: `LocalWorkspace`, `DockerWorkspace`, `E2BWorks
 ### App Layer (`app/`)
 
 FastAPI service layer. `create_app()` wires together storage (Redis), message bus (Redis), workspace manager, and exposes REST routers for agents, chats, credentials, models, sessions, schedules, and workspaces. Includes AG-UI protocol support.
+
+### Authentication & User System (`agent_service/`)
+
+Department-level user management layered on top of the core library (no changes to `src/agentscope/`).
+
+- **`auth.py`** — JWT (PyJWT/HS256) creation & validation, bcrypt password hashing, `AuthUser` dataclass, `get_current_user()` FastAPI dependency.
+- **`auth_router.py`** — Login endpoints:
+  - `POST /auth/login` — unified password login (checks Redis credentials first, falls back to env-var admin).
+  - `POST /auth/login/token` — employee token login.
+  - `POST /auth/set-credentials` — any logged-in user sets their own username/password.
+  - `GET /auth/me` — returns current user info + `has_credentials` flag.
+- **`user_router.py`** — Employee CRUD (admin only): create, list, delete, regenerate token.
+- **`agent_router.py`** — Agent assignment: assign/unassign agents to employees, list assignments.
+- **`main.py`** — `AuthMiddleware` validates JWT on all non-`/auth/*` requests, injects `request.state.auth_user`, sets `X-User-ID` header for core library compatibility. OPTIONS requests bypass auth for CORS.
+
+**Redis key patterns (user system):**
+- `agentscope:dept_users:{admin_id}:{user_id}` — employee record
+- `agentscope:dept_users_index:{admin_id}` — Set of employee user_ids
+- `agentscope:dept_tokens:{token}` — token → `{user_id, admin_user_id}`
+- `agentscope:dept_credentials:{admin_id}:{username}` — username/password credential
+- `agentscope:username_lookup:{username}` — global username → admin_user_id reverse lookup
+- `agentscope:agent_assign:{admin_id}:{agent_id}` — agent → assigned employee
+- `agentscope:agent_assign_index:{admin_id}:{user_id}` — employee → Set of agent_ids
+
+**Config** (`agent_service/.env`): `ADMIN_USERNAME`, `ADMIN_PASSWORD`, `JWT_SECRET`.
+
+### Frontend Auth (`web_ui/frontend/src/`)
+
+- **`context/AuthContext.tsx`** — `AuthProvider` wraps App, stores JWT in localStorage, `useAuth()` returns `{user, isAdmin, login, logout}`.
+- **`api/auth.ts`** — login, token login, set-credentials, me APIs.
+- **`api/client.ts`** — sends `Authorization: Bearer <token>` header; 401 auto-logout.
+- **`pages/setup/`** — Login page with "Password Login" and "Token Login" tabs.
+- **`pages/user/`** — Employee management page (admin only): employee list, token display/copy/regenerate, agent assignment.
+- **`components/dialog/SetCredentialsDialog.tsx`** — Set username/password dialog; auto-prompted for employees on first token login.
+- **`components/layout/AppSidebar.tsx`** — Role-based navigation: admin sees credential + user management; employee sees chat + schedule only. All users see "set password" button.
+- **`components/tour/`** — Role-specific onboarding tours: admin tour includes "create agent" step; employee tour starts with "select agent".
 
 ### MCP Integration (`mcp/`)
 

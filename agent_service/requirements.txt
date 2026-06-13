@@ -1,0 +1,13 @@
+# agent_service dependencies
+agentscope[full]>=2.0
+
+# Web framework
+fastapi>=0.115
+uvicorn[standard]>=0.30
+
+# Auth
+PyJWT>=2.8
+bcrypt>=4.0
+
+# Config
+python-dotenv>=1.0

@@ -36,6 +36,9 @@
 		"team": "团队",
 		"leader": "队长",
 		"worker": "成员",
+		"users": "员工管理",
+		"logout": "退出登录",
+		"setCredentials": "设置密码",
 		"time": "时间",
 		"yes": "是",
 		"deleteTitle": "删除{{entity}} \"{{name}}\"？",
@@ -341,13 +344,37 @@
 	},
 	"setup": {
 		"title": "连接到服务器",
-		"description": "请输入服务器地址和用户名以开始使用。",
+		"description": "请输入服务器地址并登录。",
 		"serverUrl": "服务器地址",
 		"serverUrlPlaceholder": "https://...",
+		"passwordLogin": "密码登录",
+		"tokenLogin": "Token 登录",
+		"adminLogin": "管理员登录",
+		"employeeLogin": "员工登录",
 		"username": "用户名",
 		"usernamePlaceholder": "请输入用户名",
-		"submit": "开始使用",
-		"hint": "此应用仅提供前端服务，所有数据均来自填写的服务器地址，用户名仅用于服务端鉴权。"
+		"password": "密码",
+		"passwordPlaceholder": "请输入密码",
+		"token": "访问令牌",
+		"tokenPlaceholder": "请粘贴管理员分发的令牌",
+		"submit": "登录",
+		"hint": "管理员及已设密码的员工可使用密码登录，首次使用的员工请使用 Token 登录。"
+	},
+	"credentials": {
+		"title": "设置登录密码",
+		"description": "设置后可用用户名和密码直接登录，无需 Token。",
+		"guide": "建议设置用户名和密码，方便下次直接登录。",
+		"username": "用户名",
+		"usernamePlaceholder": "2-32 个字符",
+		"password": "密码",
+		"passwordPlaceholder": "至少 4 个字符",
+		"confirmPassword": "确认密码",
+		"confirmPasswordPlaceholder": "再次输入密码",
+		"usernameMin": "用户名至少 2 个字符",
+		"passwordMin": "密码至少 4 个字符",
+		"passwordMismatch": "两次密码不一致",
+		"usernameTaken": "该用户名已被使用",
+		"success": "登录密码设置成功"
 	},
 	"tour": {
 		"trigger": "新手引导",
@@ -359,6 +386,10 @@
 		"createAgent": {
 			"title": "创建 Agent",
 			"content": "先创建一个 Agent —— 与你对话的智能体。"
+		},
+		"selectAgent": {
+			"title": "选择 Agent",
+			"content": "从下拉列表中选择管理员分配给你的 Agent，然后新建会话开始对话。"
 		},
 		"createSession": {
 			"title": "创建会话",
@@ -395,5 +426,25 @@
 		"running": "运行中",
 		"idle": "空闲",
 		"missingSession": "（无会话）"
+	},
+	"user-mgmt": {
+		"subtitle": "管理部门员工账号",
+		"employees": "员工列表",
+		"noEmployees": "暂无员工",
+		"addEmployee": "添加员工",
+		"addEmployeeDesc": "输入员工姓名，系统将自动生成访问令牌。",
+		"namePlaceholder": "员工姓名",
+		"created": "员工创建成功！请复制以下令牌发给员工。",
+		"tokenLabel": "访问令牌",
+		"tokenHint": "此令牌仅显示一次，请妥善保管。",
+		"regenerateToken": "重新生成令牌",
+		"createdAt": "创建时间",
+		"selectHint": "选择员工",
+		"selectHintDesc": "从左侧选择一个员工查看详情，或点击添加。",
+		"entity": "员工",
+		"assignedAgents": "分配的 Agent",
+		"noAssignedAgents": "暂未分配 Agent",
+		"selectAgent": "选择 Agent",
+		"assign": "分配"
 	}
 }

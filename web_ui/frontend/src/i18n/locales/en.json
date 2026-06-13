@@ -36,6 +36,9 @@
 		"team": "Team",
 		"leader": "Leader",
 		"worker": "Worker",
+		"users": "User Management",
+		"logout": "Log Out",
+		"setCredentials": "Set Password",
 		"time": "Time",
 		"yes": "Yes",
 		"deleteTitle": "Delete {{entity}} \"{{name}}\"?",
@@ -341,13 +344,37 @@
 	},
 	"setup": {
 		"title": "Connect to Service",
-		"description": "Enter your server URL and username to get started.",
+		"description": "Enter server URL and log in.",
 		"serverUrl": "Server URL",
 		"serverUrlPlaceholder": "https://...",
+		"passwordLogin": "Password Login",
+		"tokenLogin": "Token Login",
+		"adminLogin": "Admin Login",
+		"employeeLogin": "Employee Login",
 		"username": "Username",
 		"usernamePlaceholder": "Your username",
-		"submit": "Get Started",
-		"hint": "This is a frontend-only application, and all data are served from the Server URL above. The username is used solely for server-side authentication."
+		"password": "Password",
+		"passwordPlaceholder": "Enter password",
+		"token": "Access Token",
+		"tokenPlaceholder": "Paste the token from your admin",
+		"submit": "Log In",
+		"hint": "Admins and employees with a password use Password Login. First-time employees use Token Login."
+	},
+	"credentials": {
+		"title": "Set Login Password",
+		"description": "Set a username and password so you can log in directly next time.",
+		"guide": "We recommend setting a username and password for easier future logins.",
+		"username": "Username",
+		"usernamePlaceholder": "2-32 characters",
+		"password": "Password",
+		"passwordPlaceholder": "At least 4 characters",
+		"confirmPassword": "Confirm Password",
+		"confirmPasswordPlaceholder": "Re-enter password",
+		"usernameMin": "Username must be at least 2 characters",
+		"passwordMin": "Password must be at least 4 characters",
+		"passwordMismatch": "Passwords do not match",
+		"usernameTaken": "Username is already taken",
+		"success": "Login credentials set successfully"
 	},
 	"tour": {
 		"trigger": "Take a tour",
@@ -359,6 +386,10 @@
 		"createAgent": {
 			"title": "Create an agent",
 			"content": "Start by creating an agent — your chat partner."
+		},
+		"selectAgent": {
+			"title": "Select an agent",
+			"content": "Pick an agent assigned to you from the dropdown, then create a session to start chatting."
 		},
 		"createSession": {
 			"title": "Create a session",
@@ -395,5 +426,25 @@
 		"running": "Running",
 		"idle": "Idle",
 		"missingSession": "(no session)"
+	},
+	"user-mgmt": {
+		"subtitle": "Manage department employees",
+		"employees": "Employees",
+		"noEmployees": "No employees yet",
+		"addEmployee": "Add Employee",
+		"addEmployeeDesc": "Enter the employee name. An access token will be generated automatically.",
+		"namePlaceholder": "Employee name",
+		"created": "Employee created! Copy the token below and share it.",
+		"tokenLabel": "Access Token",
+		"tokenHint": "This token is shown only once. Keep it safe.",
+		"regenerateToken": "Regenerate Token",
+		"createdAt": "Created At",
+		"selectHint": "Select an Employee",
+		"selectHintDesc": "Select an employee from the list or add a new one.",
+		"entity": "Employee",
+		"assignedAgents": "Assigned Agents",
+		"noAssignedAgents": "No agents assigned yet",
+		"selectAgent": "Select Agent",
+		"assign": "Assign"
 	}
 }

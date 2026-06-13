@@ -35,17 +35,31 @@ git clone https://github.com/firewolf189/CloudAgents.git
 cd CloudAgents
 ```
 
-### 2. 安装 AgentScope 核心库
+### 2. 安装后端依赖
 
 ```bash
-cd src/agentscope
 conda create -n agentscope python=3.11 -y
 conda activate agentscope
-uv pip install -e .[full]
-cd ../..
+pip install -r agent_service/requirements.txt
 ```
 
-### 3. 启动 Redis
+### 3. 配置管理员账号
+
+```bash
+cd agent_service
+cp .env.example .env   # 复制示例配置
+# 编辑 .env，设置管理员密码和 JWT 密钥
+```
+
+`.env` 关键配置项：
+
+```env
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=your_password
+JWT_SECRET=your_secret_key
+```
+
+### 4. 启动 Redis
 
 ```bash
 # macOS
@@ -59,7 +73,7 @@ sudo systemctl start redis
 
 确认 Redis 运行在 `localhost:6379`。
 
-### 4. 启动后端服务（agent_service）
+### 5. 启动后端服务（agent_service）
 
 ```bash
 conda activate agentscope
@@ -69,7 +83,7 @@ python main.py
 
 服务启动在 `http://localhost:8300`。
 
-### 5. 安装并启动前端
+### 6. 安装并启动前端
 
 ```bash
 cd web_ui
@@ -80,9 +94,11 @@ pnpm dev
 - 前端：`http://localhost:5173`
 - Node 后端：`http://localhost:3000`
 
-### 6. 访问
+### 7. 访问
 
-浏览器打开 `http://localhost:5173`，输入服务器地址 `http://localhost:8300` 和用户名即可使用。
+浏览器打开 `http://localhost:5173`，输入服务器地址 `http://localhost:8300`，使用管理员账号密码登录。
+
+管理员登录后可在「员工管理」页面创建员工并分发 Token，员工首次用 Token 登录后可自行设置用户名密码。
 
 ## 一键管理
 

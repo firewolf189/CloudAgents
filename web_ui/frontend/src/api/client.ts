@@ -2,6 +2,7 @@ import { toast } from 'sonner';
 
 export const getBaseUrl = () => localStorage.getItem('server_url') ?? '';
 export const getUserId = () => localStorage.getItem('username') ?? '';
+export const getAuthToken = () => localStorage.getItem('auth_token') ?? '';
 
 /**
  * Structured error thrown for non-2xx HTTP responses.
@@ -28,7 +29,15 @@ interface RequestOptions {
 }
 
 function buildHeaders(hasBody: boolean): Record<string, string> {
-	const headers: Record<string, string> = { 'X-User-ID': getUserId() };
+	const headers: Record<string, string> = {};
+	const token = getAuthToken();
+	if (token) {
+		headers['Authorization'] = `Bearer ${token}`;
+	}
+	const userId = getUserId();
+	if (userId) {
+		headers['X-User-ID'] = userId;
+	}
 	if (hasBody) headers['Content-Type'] = 'application/json';
 	return headers;
 }
@@ -62,6 +71,11 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 	if (!res.ok) {
 		const detail = await extractErrorDetail(res);
 		const error = new ApiError(res.status, detail);
+		if (res.status === 401 && !path.startsWith('/auth/')) {
+			localStorage.removeItem('auth_token');
+			window.location.reload();
+			throw error;
+		}
 		if (!silent) toast.error(detail);
 		throw error;
 	}
@@ -90,6 +104,11 @@ async function streamRequest(
 	if (!res.ok) {
 		const detail = await extractErrorDetail(res);
 		const error = new ApiError(res.status, detail);
+		if (res.status === 401 && !path.startsWith('/auth/')) {
+			localStorage.removeItem('auth_token');
+			window.location.reload();
+			throw error;
+		}
 		if (!silent) toast.error(detail);
 		throw error;
 	}

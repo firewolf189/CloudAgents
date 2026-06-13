@@ -4,8 +4,10 @@ import * as React from 'react';
 
 import type { ScheduleEvent } from './event';
 import type { ScheduleRecord } from '@/api';
+import { userApi } from '@/api';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useAuth } from '@/context/AuthContext';
 import { useSchedules } from '@/hooks/useSchedules';
 import { useTranslation } from '@/i18n/useI18n';
 import { CalendarTabPage } from '@/pages/schedule/calendar-tab-page';
@@ -50,11 +52,29 @@ function expandScheduleToEvents(
 
 export function SchedulePage() {
 	const { t } = useTranslation();
-	const { schedules, remove, refetch } = useSchedules();
+	const { isAdmin, user } = useAuth();
+	const { schedules: allSchedules, remove, refetch } = useSchedules();
 	const [viewMode, setViewMode] = React.useState<'calendar' | 'list'>('calendar');
 	const [currentDate, setCurrentDate] = React.useState(new Date());
 	const [selectedSchedule, setSelectedSchedule] = React.useState<ScheduleRecord | null>(null);
 	const [isCreateOpen, setIsCreateOpen] = React.useState(false);
+
+	// Employee: filter schedules to assigned agents only
+	const [assignedIds, setAssignedIds] = React.useState<Set<string> | null>(null);
+	React.useEffect(() => {
+		if (isAdmin) {
+			setAssignedIds(null);
+			return;
+		}
+		userApi.listAssignments().then((list) => {
+			setAssignedIds(new Set(list.filter((a) => a.assigned_to === user?.user_id).map((a) => a.agent_id)));
+		}).catch(() => setAssignedIds(new Set()));
+	}, [isAdmin, user?.user_id]);
+
+	const schedules = React.useMemo(() => {
+		if (isAdmin || !assignedIds) return allSchedules;
+		return allSchedules.filter((s) => assignedIds.has(s.agent_id));
+	}, [allSchedules, assignedIds, isAdmin]);
 
 	const rangeStart = React.useMemo(
 		() => new Date(currentDate.getFullYear(), currentDate.getMonth(), 1),
@@ -82,9 +102,11 @@ export function SchedulePage() {
 			<div className="flex items-center justify-between p-4 flex-shrink-0">
 				<span className="text-2xl font-semibold">{t('common.schedule')}</span>
 				<div className="flex items-center gap-2">
-					<Button size="icon-sm" onClick={() => setIsCreateOpen(true)}>
-						<Plus />
-					</Button>
+					{isAdmin && (
+						<Button size="icon-sm" onClick={() => setIsCreateOpen(true)}>
+							<Plus />
+						</Button>
+					)}
 					<Tabs
 						value={viewMode}
 						onValueChange={(value) => setViewMode(value as 'calendar' | 'list')}

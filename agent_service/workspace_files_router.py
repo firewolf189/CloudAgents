@@ -22,6 +22,9 @@ class FileEntry(BaseModel):
 
 
 async def _get_user_id(request: Request) -> str:
+    auth_user = getattr(request.state, "auth_user", None)
+    if auth_user:
+        return auth_user.admin_user_id
     user_id = request.headers.get("X-User-ID", "")
     if not user_id:
         raise HTTPException(

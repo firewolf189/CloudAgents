@@ -1,10 +1,17 @@
 # -*- coding: utf-8 -*-
 """The example script to start the agent service."""
 import os
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).parent / ".env")
 
 import uvicorn
+from fastapi import Request, Response
 from fastapi.middleware import Middleware
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from agentscope.app import create_app, SubAgentTemplate
 from agentscope.app.message_bus import RedisMessageBus
@@ -13,10 +20,86 @@ from agentscope.app.workspace_manager import LocalWorkspaceManager
 from agentscope.mcp import MCPClient, StdioMCPConfig, HttpMCPConfig
 from agentscope.permission import PermissionContext, PermissionMode
 
+from auth import decode_jwt, ADMIN_USERNAME
+from agent_router import agent_router
+from auth_router import auth_router
 from model_router import model_router as custom_model_router
 from skill_install_router import skill_install_router
 from task_router import task_router
+from user_router import user_router
 from workspace_files_router import workspace_files_router
+
+# ── Auth middleware ───────────────────────────────────────────────────────────
+
+OPEN_PATHS = {"/auth/login", "/auth/login/token", "/docs", "/openapi.json", "/redoc"}
+
+
+class AuthMiddleware(BaseHTTPMiddleware):
+    """Validate JWT and inject X-User-ID for core library routes."""
+
+    async def dispatch(self, request: Request, call_next) -> Response:
+        path = request.url.path
+
+        # Let CORS preflight through unconditionally
+        if request.method == "OPTIONS":
+            return await call_next(request)
+
+        if path in OPEN_PATHS or path.startswith("/auth/"):
+            return await call_next(request)
+
+        auth_header = request.headers.get("Authorization", "")
+        if not auth_header.startswith("Bearer "):
+            return Response(
+                content='{"detail":"Authorization header required."}',
+                status_code=401,
+                media_type="application/json",
+            )
+
+        token = auth_header[7:]
+        try:
+            payload = decode_jwt(token)
+        except Exception:
+            return Response(
+                content='{"detail":"Invalid or expired token."}',
+                status_code=401,
+                media_type="application/json",
+            )
+
+        from dataclasses import dataclass
+
+        @dataclass
+        class _AuthUser:
+            user_id: str
+            role: str
+            admin_user_id: str
+            name: str = ""
+
+        auth_user = _AuthUser(
+            user_id=payload["user_id"],
+            role=payload["role"],
+            admin_user_id=payload["admin_user_id"],
+            name=payload.get("name", ""),
+        )
+        request.state.auth_user = auth_user
+
+        # For core library routes that read X-User-ID:
+        # - Credential/model routes → use admin_user_id (shared credentials)
+        # - Agent/session routes → use admin_user_id (all agents live under admin namespace)
+        x_user_id = auth_user.admin_user_id
+
+        # Inject X-User-ID into the request headers (immutable, so we rebuild)
+        headers = dict(request.scope["headers"])
+        new_headers = []
+        for k, v in request.scope["headers"]:
+            if k.lower() != b"x-user-id":
+                new_headers.append((k, v))
+        new_headers.append((b"x-user-id", x_user_id.encode()))
+        request.scope["headers"] = new_headers
+
+        return await call_next(request)
+
+
+# ── App setup ─────────────────────────────────────────────────────────────────
 
 default_mcps = [
     MCPClient(
@@ -106,12 +189,18 @@ so anything you want them to see MUST be sent through `TeamSay`.""",
     ],
 )
 
+# Auth middleware (must be added after CORS)
+app.add_middleware(AuthMiddleware)
+
 # Override the built-in /model router with our custom one that supports CRUD
 app.routes[:] = [r for r in app.routes if not (hasattr(r, "path") and r.path.startswith("/model"))]
 app.include_router(custom_model_router)
 app.include_router(skill_install_router)
 app.include_router(workspace_files_router)
 app.include_router(task_router)
+app.include_router(auth_router)
+app.include_router(user_router)
+app.include_router(agent_router)
 
 
 if __name__ == "__main__":

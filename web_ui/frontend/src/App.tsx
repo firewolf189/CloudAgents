@@ -4,13 +4,15 @@ import { createBrowserRouter, Navigate, RouterProvider, useNavigate } from 'reac
 import { Toaster } from 'sonner';
 
 import { AppLayout } from '@/components/layout/AppLayout';
-import { buildChatTour } from '@/components/tour/chatTourSteps';
+import { buildChatTour, buildEmployeeTour } from '@/components/tour/chatTourSteps';
 import { TourCard } from '@/components/tour/TourCard';
+import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { useTranslation } from '@/i18n/useI18n';
 import { ChatPage } from '@/pages/chat';
 import { CredentialPage } from '@/pages/credential';
 import { SchedulePage } from '@/pages/schedule';
 import { SetupPage } from '@/pages/setup';
+import { UserPage } from '@/pages/user';
 
 function SetupPageRoute() {
 	const navigate = useNavigate();
@@ -35,17 +37,28 @@ const router = createBrowserRouter([
 			},
 			{ path: '/schedule', element: <SchedulePage /> },
 			{ path: '/credential', element: <CredentialPage /> },
+			{ path: '/users', element: <UserPage /> },
 		],
 	},
 	{ path: '/setup', element: <SetupPageRoute /> },
 ]);
 
-function App() {
+function AppInner() {
 	const { t } = useTranslation();
-	const [setupComplete, setSetupComplete] = useState(() => !!localStorage.getItem('server_url'));
-	const tours = useMemo(() => [buildChatTour(t)], [t]);
+	const { user, loading, isAdmin } = useAuth();
+	const [setupComplete, setSetupComplete] = useState(
+		() => !!localStorage.getItem('server_url') && !!localStorage.getItem('auth_token'),
+	);
+	const tours = useMemo(
+		() => isAdmin ? [buildChatTour(t)] : [buildEmployeeTour(t)],
+		[t, isAdmin],
+	);
 
-	if (!setupComplete) {
+	if (loading) {
+		return null;
+	}
+
+	if (!setupComplete || !user) {
 		return <SetupPage onComplete={() => setSetupComplete(true)} />;
 	}
 
@@ -61,6 +74,14 @@ function App() {
 				<Toaster richColors position="top-right" />
 			</Onborda>
 		</OnbordaProvider>
+	);
+}
+
+function App() {
+	return (
+		<AuthProvider>
+			<AppInner />
+		</AuthProvider>
 	);
 }
 
