@@ -45,8 +45,7 @@ cd CloudAgents
 conda create -n cloudagents python=3.11 -y
 conda activate cloudagents
 
-# 安装 AgentScope 核心库（从官方仓库源码安装，PyPI 版本不含 app 模块）
-git clone https://github.com/agentscope-ai/agentscope.git src/agentscope
+# 安装 AgentScope 核心库（源码已包含在仓库 src/agentscope 中）
 cd src/agentscope
 pip install -e .[full]
 cd ../..
