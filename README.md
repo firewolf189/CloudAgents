@@ -47,7 +47,7 @@ conda activate cloudagents
 
 # 安装 AgentScope 核心库（源码已包含在仓库 src/agentscope 中）
 cd src/agentscope
-pip install -e .[full]
+pip install -e ".[full]"
 cd ../..
 
 # 安装 agent_service 其他依赖
