@@ -147,7 +147,7 @@ export const TextInput = forwardRef<TextInputRef, TextInputProps>(
 			// Add text block
 			if (value.trim()) {
 				const textBlock: TextBlock = {
-					id: crypto.randomUUID(),
+					id: crypto.randomUUID?.() ?? Math.random().toString(36).slice(2),
 					type: 'text',
 					text: value.trim(),
 				};

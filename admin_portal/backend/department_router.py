@@ -167,3 +167,28 @@ async def test_connection(dept_id: str, user: AuthUser = Depends(get_current_use
     if not token:
         return {"ok": False, "detail": "Failed to login to department backend."}
     return {"ok": True}
+
+
+@dept_router.get("/{dept_id}/token")
+async def get_dept_token(dept_id: str, user: AuthUser = Depends(get_current_user)):
+    """Get a JWT token for the department backend (used for auto-login)."""
+    db = await get_db()
+    try:
+        cursor = await db.execute(
+            "SELECT backend_url, frontend_url, admin_username, admin_password FROM departments WHERE id = ?",
+            (dept_id,),
+        )
+        row = await cursor.fetchone()
+    finally:
+        await db.close()
+    if not row:
+        raise HTTPException(status_code=404, detail="Department not found.")
+
+    token = await department_client.login(row["backend_url"], row["admin_username"], row["admin_password"])
+    if not token:
+        raise HTTPException(status_code=502, detail="Failed to login to department backend.")
+    return {
+        "token": token,
+        "backend_url": row["backend_url"],
+        "frontend_url": row["frontend_url"] or "",
+    }

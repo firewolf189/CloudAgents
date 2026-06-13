@@ -97,6 +97,7 @@ export const deptApi = {
   delete: (id: string) => api.del(`/departments/${id}`),
   health: (id: string) => api.get<{ id: string; name: string; online: boolean }>(`/departments/${id}/health`),
   testConnection: (id: string) => api.post<{ ok: boolean; detail?: string }>(`/departments/${id}/test-connection`),
+  getToken: (id: string) => api.get<{ token: string; backend_url: string; frontend_url: string }>(`/departments/${id}/token`),
 };
 
 export const dashboardApi = {

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Bot, ExternalLink, Building2, Loader2 } from 'lucide-react';
-import { agentsApi, type DeptAgents } from '@/api/client';
+import { toast } from 'sonner';
+import { agentsApi, deptApi, type DeptAgents } from '@/api/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -8,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 export function AgentsPage() {
   const [data, setData] = useState<DeptAgents[]>([]);
   const [loading, setLoading] = useState(true);
+  const [opening, setOpening] = useState<string | null>(null);
 
   useEffect(() => {
     agentsApi.all()
@@ -16,9 +18,19 @@ export function AgentsPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const openChat = (dept: DeptAgents, agentId: string) => {
-    const frontendUrl = dept.frontend_url || dept.backend_url.replace(':8300', ':5173');
-    window.open(`${frontendUrl}/chat/${agentId}`, '_blank');
+  const openChat = async (dept: DeptAgents, agentId: string) => {
+    const key = `${dept.department_id}:${agentId}`;
+    setOpening(key);
+    try {
+      const res = await deptApi.getToken(dept.department_id);
+      const frontendUrl = res.frontend_url || dept.frontend_url || dept.backend_url.replace(':8300', ':5173');
+      const url = `${frontendUrl}/chat/${agentId}?auto_token=${encodeURIComponent(res.token)}&server_url=${encodeURIComponent(res.backend_url)}`;
+      window.open(url, '_blank');
+    } catch {
+      toast.error('获取部门令牌失败');
+    } finally {
+      setOpening(null);
+    }
   };
 
   if (loading) {
@@ -69,9 +81,14 @@ export function AgentsPage() {
                         size="sm"
                         variant="outline"
                         className="w-full gap-1.5"
+                        disabled={opening === `${dept.department_id}:${agent.id}`}
                         onClick={() => openChat(dept, agent.id)}
                       >
-                        <ExternalLink className="w-3.5 h-3.5" />
+                        {opening === `${dept.department_id}:${agent.id}` ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        )}
                         打开聊天
                       </Button>
                     </CardContent>

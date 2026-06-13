@@ -254,7 +254,7 @@ export function useMessages(
 
 			const event: UserConfirmResultEvent = {
 				type: EventType.USER_CONFIRM_RESULT,
-				id: crypto.randomUUID(),
+				id: crypto.randomUUID?.() ?? Math.random().toString(36).slice(2),
 				created_at: new Date().toISOString(),
 				reply_id: replyId,
 				confirm_results: [

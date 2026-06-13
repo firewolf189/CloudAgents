@@ -100,7 +100,7 @@ function groupToolCalls(content: ContentBlock[]): ExtendedContentBlock[] {
 		if (currentGroup.length > 0 && currentToolName) {
 			result.push({
 				type: 'tool_call_group',
-				id: crypto.randomUUID(),
+				id: crypto.randomUUID?.() ?? Math.random().toString(36).slice(2),
 				toolName: currentToolName,
 				calls: currentGroup,
 			});
@@ -130,7 +130,7 @@ function groupToolCalls(content: ContentBlock[]): ExtendedContentBlock[] {
 		if (block.type === 'tool_result') {
 			result.push({
 				type: 'tool_call_group',
-				id: crypto.randomUUID(),
+				id: crypto.randomUUID?.() ?? Math.random().toString(36).slice(2),
 				toolName: block.name,
 				calls: [
 					{

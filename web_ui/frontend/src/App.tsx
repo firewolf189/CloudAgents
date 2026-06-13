@@ -49,6 +49,7 @@ function AppInner() {
 	const [setupComplete, setSetupComplete] = useState(
 		() => !!localStorage.getItem('server_url') && !!localStorage.getItem('auth_token'),
 	);
+
 	const tours = useMemo(
 		() => isAdmin ? [buildChatTour(t)] : [buildEmployeeTour(t)],
 		[t, isAdmin],
