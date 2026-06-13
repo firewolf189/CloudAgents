@@ -42,14 +42,27 @@ _stop_by_pidfile() {
     local label="$1" pidfile="$2"
     if _pid_alive "$pidfile"; then
         local pid; pid=$(cat "$pidfile")
-        # kill process tree: find children, then kill parent
         pkill -P "$pid" 2>/dev/null || true
         kill "$pid" 2>/dev/null || true
+        for i in 1 2 3 4 5; do
+            kill -0 "$pid" 2>/dev/null || break
+            sleep 1
+        done
+        kill -9 "$pid" 2>/dev/null || true
         rm -f "$pidfile"
         echo "[$label] stopped (pid $pid)"
     else
         rm -f "$pidfile"
         echo "[$label] not running"
+    fi
+}
+
+_kill_port() {
+    local port="$1"
+    local pids; pids=$(lsof -ti:"$port" 2>/dev/null)
+    if [ -n "$pids" ]; then
+        echo "$pids" | xargs kill -9 2>/dev/null || true
+        sleep 1
     fi
 }
 
@@ -96,7 +109,7 @@ start_frontend() {
     fi
     echo "[frontend] starting on :$VITE_PORT ..."
     cd "$ROOT_DIR/web_ui"
-    nohup env VITE_PORT="$VITE_PORT" pnpm dev:frontend -- --port "$VITE_PORT" > "$LOG_DIR/frontend.log" 2>&1 &
+    nohup env VITE_PORT="$VITE_PORT" pnpm dev:frontend -- --port "$VITE_PORT" --host > "$LOG_DIR/frontend.log" 2>&1 &
     echo $! > "$PIDFILE_FRONTEND"
     echo "[frontend] started (pid $!), log: $LOG_DIR/frontend.log"
 }
@@ -116,12 +129,19 @@ do_stop() {
     case "${1:-all}" in
         frontend)
             _stop_by_pidfile "frontend" "$PIDFILE_FRONTEND"
-            _stop_by_pidfile "node_backend" "$PIDFILE_NODE_BE" ;;
+            _kill_port "$VITE_PORT"
+            _stop_by_pidfile "node_backend" "$PIDFILE_NODE_BE"
+            _kill_port "$NODE_PORT" ;;
         backend)
-            _stop_by_pidfile "agent_service" "$PIDFILE_AGENT" ;;
+            _stop_by_pidfile "agent_service" "$PIDFILE_AGENT"
+            _kill_port "$AGENT_PORT" ;;
         all)
             _stop_by_pidfile "frontend" "$PIDFILE_FRONTEND"
+            _kill_port "$VITE_PORT"
             _stop_by_pidfile "node_backend" "$PIDFILE_NODE_BE"
+            _kill_port "$NODE_PORT"
+            _stop_by_pidfile "agent_service" "$PIDFILE_AGENT"
+            _kill_port "$AGENT_PORT" ;;
             _stop_by_pidfile "agent_service" "$PIDFILE_AGENT" ;;
         *) echo "unknown target: $1"; exit 1 ;;
     esac
@@ -135,7 +155,7 @@ do_status() {
 
 do_restart() {
     do_stop "${1:-all}"
-    sleep 1
+    sleep 2
     do_start "${1:-all}"
 }
 

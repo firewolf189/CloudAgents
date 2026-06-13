@@ -1,0 +1,3 @@
+# admin_portal 额外依赖（其余依赖与 agent_service 共用 cloudagents 环境）
+aiosqlite>=0.20
+httpx>=0.27
