@@ -42,8 +42,8 @@ cd CloudAgents
 ### 2. 安装后端依赖
 
 ```bash
-conda create -n agentscope python=3.11 -y
-conda activate agentscope
+conda create -n cloudagents python=3.11 -y
+conda activate cloudagents
 pip install -r agent_service/requirements.txt
 ```
 
@@ -80,7 +80,7 @@ JWT_SECRET=your_secret_key
 ### 5. 启动后端服务（agent_service）
 
 ```bash
-conda activate agentscope
+conda activate cloudagents
 cd agent_service
 python main.py
 ```
@@ -129,7 +129,7 @@ bash manager.sh status
 bash manager.sh logs all
 ```
 
-> `manager.sh` 默认使用 conda 环境 `agentscope`，可通过环境变量 `CONDA_ENV` 修改。
+> `manager.sh` 默认使用 conda 环境 `cloudagents`，可通过环境变量 `CONDA_ENV` 修改。
 
 ## 端口配置
 
@@ -145,7 +145,7 @@ bash manager.sh logs all
 AGENT_PORT=8300
 NODE_PORT=3000
 VITE_PORT=5173
-CONDA_ENV=agentscope
+CONDA_ENV=cloudagents
 ```
 
 ## 模型配置
