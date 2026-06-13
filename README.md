@@ -47,7 +47,21 @@ conda activate agentscope
 pip install -r agent_service/requirements.txt
 ```
 
-### 3. 配置管理员账号
+### 3. 安装并启动 Redis
+
+```bash
+# macOS
+brew install redis
+brew services start redis
+
+# Linux (Ubuntu/Debian)
+sudo apt install redis-server
+sudo systemctl start redis
+```
+
+确认 Redis 运行在 `localhost:6379`。
+
+### 4. 配置管理员账号
 
 ```bash
 cd agent_service
@@ -62,20 +76,6 @@ ADMIN_USERNAME=admin
 ADMIN_PASSWORD=your_password
 JWT_SECRET=your_secret_key
 ```
-
-### 4. 启动 Redis
-
-```bash
-# macOS
-brew install redis
-brew services start redis
-
-# Linux
-sudo apt install redis-server
-sudo systemctl start redis
-```
-
-确认 Redis 运行在 `localhost:6379`。
 
 ### 5. 启动后端服务（agent_service）
 
