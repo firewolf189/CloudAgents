@@ -59,7 +59,7 @@ _stop_by_pidfile() {
 
 _kill_port() {
     local port="$1"
-    local pids; pids=$(lsof -ti:"$port" 2>/dev/null)
+    local pids; pids=$(lsof -ti:"$port" 2>/dev/null || true)
     if [ -n "$pids" ]; then
         echo "$pids" | xargs kill -9 2>/dev/null || true
         sleep 1
@@ -142,7 +142,6 @@ do_stop() {
             _kill_port "$NODE_PORT"
             _stop_by_pidfile "agent_service" "$PIDFILE_AGENT"
             _kill_port "$AGENT_PORT" ;;
-            _stop_by_pidfile "agent_service" "$PIDFILE_AGENT" ;;
         *) echo "unknown target: $1"; exit 1 ;;
     esac
 }
