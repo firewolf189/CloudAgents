@@ -26,6 +26,10 @@
 | Redis | >= 6 |
 | Conda（推荐） | 任意版本 |
 
+> **推荐conda的替代 Miniforge3：**
+> - 官网下载：https://conda-forge.org/miniforge/（速度较慢）
+> - 国内镜像（推荐）：https://mirror.nju.edu.cn/github-release/conda-forge/miniforge/LatestRelease/
+
 ## 快速部署
 
 ### 1. 克隆仓库
