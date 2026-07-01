@@ -1,4 +1,4 @@
-import { BotMessageSquare, Calendars, Compass, KeyRound, Languages, LogOut, UserCog, Users } from 'lucide-react';
+import { BookOpen, BotMessageSquare, Calendars, Compass, KeyRound, Languages, LogOut, UserCog, Users } from 'lucide-react';
 import { useOnborda } from 'onborda';
 import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -95,6 +95,16 @@ export function AppSidebar() {
 									className="px-2"
 								>
 									<Calendars />
+								</SidebarMenuButton>
+							</SidebarMenuItem>
+							<SidebarMenuItem>
+								<SidebarMenuButton
+									tooltip={{ children: t('wiki.title'), hidden: false }}
+									isActive={location.pathname === '/wiki'}
+									onClick={() => navigate('/wiki')}
+									className="px-2"
+								>
+									<BookOpen />
 								</SidebarMenuButton>
 							</SidebarMenuItem>
 						</SidebarMenu>

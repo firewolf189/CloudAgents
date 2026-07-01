@@ -364,6 +364,22 @@ class MessageBus(ABC):  # pylint: disable=too-many-public-methods
                 ``True`` if some process holds the lock right now.
         """
 
+    @abstractmethod
+    async def force_release_lock(self, key: str) -> None:
+        """Unconditionally delete a lock, regardless of ownership.
+
+        This is a last-resort escape hatch for cancel paths where the
+        holding task refused to unwind within the timeout. Callers
+        must only invoke this after confirming the owning task has
+        been removed from the local registry and the bus cancel has
+        been broadcast, so no legitimate holder is still running.
+
+        Args:
+            key (`str`):
+                Lock identifier (same key passed to
+                :meth:`acquire_lock`).
+        """
+
     # ==================================================================
     # Domain helpers — concrete on the base class so all backends
     # share the same key conventions and serialisation rules.
@@ -438,6 +454,22 @@ class MessageBus(ABC):  # pylint: disable=too-many-public-methods
                 ``True`` if a chat run holds the session lock right now.
         """
         return await self.is_locked(
+            self._SESSION_LOCK_KEY.format(sid=session_id),
+        )
+
+    async def session_force_release(self, session_id: str) -> None:
+        """Force-release the distributed session lock.
+
+        Last-resort escape hatch used by the cancel endpoint when the
+        holding task refuses to unwind within the timeout. The caller
+        must have already cancelled the task and removed it from the
+        local registry.
+
+        Args:
+            session_id (`str`):
+                The session whose lock to release.
+        """
+        await self.force_release_lock(
             self._SESSION_LOCK_KEY.format(sid=session_id),
         )
 

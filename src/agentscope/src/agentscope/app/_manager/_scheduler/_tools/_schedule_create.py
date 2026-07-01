@@ -67,11 +67,11 @@ class _ScheduleCreateParams(BaseModel):
     )
 
     permission_mode: str = Field(
-        default=PermissionMode.DONT_ASK.value,
+        default=PermissionMode.BYPASS.value,
         description=(
             "Permission mode for the agent during scheduled execution. "
             f"Allowed values: {[m.value for m in PermissionMode]}. "
-            "Defaults to 'dont_ask' since no user is present."
+            "Defaults to 'bypass' for unattended execution."
         ),
     )
 
@@ -170,7 +170,7 @@ to complete the task independently.
         started_at: datetime | None = None,
         ended_at: datetime | None = None,
         stateful: bool = False,
-        permission_mode: str = PermissionMode.DONT_ASK.value,
+        permission_mode: str = PermissionMode.BYPASS.value,
         _agent_state: AgentState | None = None,
     ) -> ToolChunk:
         """Create a new scheduled task.
@@ -207,7 +207,7 @@ to complete the task independently.
         try:
             perm_mode = PermissionMode(permission_mode)
         except ValueError:
-            perm_mode = PermissionMode.DONT_ASK
+            perm_mode = PermissionMode.BYPASS
 
         source_session_id = (
             _agent_state.session_id if _agent_state is not None else ""

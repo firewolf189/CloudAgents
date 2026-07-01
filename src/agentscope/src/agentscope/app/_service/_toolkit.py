@@ -6,11 +6,24 @@ workspace builtins, MCPs, skills, planning tools (Task*), background-task
 control (TaskStop), schedule control (Schedule*), team participation
 tools, and caller-supplied extras — into one :class:`Toolkit`.
 """
+import os
 from typing import Any
 
 from .._manager import BackgroundTaskManager, SchedulerManager
 from ..message_bus import MessageBus
 from .._tools import AgentCreate, TeamCreate, TeamDelete, TeamSay
+from .._tools._wiki_tools import (
+    WikiList,
+    WikiRead,
+    WikiWrite,
+    WikiSearch,
+    WikiListRaw,
+    WikiReadRaw,
+    WikiLog,
+    WikiSaveRaw,
+    WikiIngest,
+    WikiLint,
+)
 from .._types import AgentToolFactory, SubAgentTemplate
 from ..storage import AgentRecord, SessionRecord, StorageBase
 from ...tool import (
@@ -164,6 +177,79 @@ time or interval"
             TeamSay(**team_tool_kwargs, role="leader"),
             TeamDelete(**team_tool_kwargs),
         ]
+
+    # Wiki tools — available to all agents.
+    # All groups are pre-activated in _chat.py so no ResetTools needed.
+    wiki_dir = os.path.join(workspace.workdir, "wiki")
+    wiki_kwargs: dict[str, Any] = {"wiki_dir": wiki_dir}
+    tool_groups.append(
+        ToolGroup(
+            name="wiki_tools",
+            description=(
+                "Tools for reading and writing this agent's Wiki "
+                "knowledge base."
+            ),
+            instructions="""\
+## Wiki Architecture
+
+The wiki lives on the file system under the agent's workspace.
+
+- **raw/** — immutable source documents uploaded by the user. \
+Read with WikiListRaw/WikiReadRaw, never modify.
+- **wiki/** — LLM-generated pages organized by category \
+(concepts, entities, topics, analysis, journal). Managed with \
+WikiList/WikiRead/WikiWrite.
+- **log.md** — automatically maintained operation log. \
+Read with WikiLog to see recent ingest/query/lint activity.
+
+## Answering Questions (Query Workflow)
+
+When a user asks a question that the wiki might answer:
+
+1. **Search first** — call WikiSearch with relevant keywords \
+(space-separated for multi-keyword). It returns the top matches \
+with full content, so you often don't need WikiRead separately.
+2. **Synthesize** — combine information from matched pages. \
+Cite sources using [[wikilinks]]. If info is missing, say so.
+3. **File good answers** — if your answer is substantial and \
+reusable, save it to wiki/analysis/{slug}.md using WikiWrite.
+
+## Available Tools
+
+- **WikiListRaw** / **WikiReadRaw** — list and read raw source docs.
+- **WikiSaveRaw** — save a new document to raw/.
+- **WikiIngest** — ingest a raw doc into wiki pages via LLM.
+- **WikiList** — list all wiki pages (filterable by category).
+- **WikiRead** — read a specific page by path.
+- **WikiSearch** — multi-keyword search with auto-content return.
+- **WikiWrite** — create or update a wiki page.
+- **WikiLog** — read recent wiki operation log entries.
+- **WikiLint** — run a health check on the wiki.
+
+## Page Format
+
+Every page uses YAML frontmatter (title, tags, sources, created, \
+updated) followed by markdown body. Use [[double-bracket wikilinks]] \
+for cross-references. Keep pages focused — one concept per page.\
+""",
+            tools=[
+                WikiListRaw(**wiki_kwargs),
+                WikiReadRaw(**wiki_kwargs),
+                WikiSaveRaw(**wiki_kwargs),
+                WikiList(**wiki_kwargs),
+                WikiRead(**wiki_kwargs),
+                WikiWrite(**wiki_kwargs),
+                WikiSearch(**wiki_kwargs),
+                WikiLog(**wiki_kwargs),
+                WikiIngest(
+                    wiki_dir=wiki_dir,
+                    storage=storage,
+                    user_id=user_id,
+                ),
+                WikiLint(**wiki_kwargs),
+            ],
+        ),
+    )
 
     # Caller-supplied extras.
     if extra_factory is not None:

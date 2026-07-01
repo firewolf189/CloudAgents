@@ -117,12 +117,14 @@ async function streamRequest(
 }
 
 export const client = {
-	get: <T>(path: string, params?: Record<string, string>) =>
-		request<T>(path, { method: 'GET', params }),
+	get: <T>(path: string, params?: Record<string, string>, options?: { silent?: boolean }) =>
+		request<T>(path, { method: 'GET', params, ...options }),
 	post: <T>(path: string, body?: unknown, params?: Record<string, string>) =>
 		request<T>(path, { method: 'POST', body, params }),
 	patch: <T>(path: string, body?: unknown, params?: Record<string, string>) =>
 		request<T>(path, { method: 'PATCH', body, params }),
+	put: <T>(path: string, body?: unknown, params?: Record<string, string>) =>
+		request<T>(path, { method: 'PUT', body, params }),
 	delete: <T = void>(path: string, params?: Record<string, string>) =>
 		request<T>(path, { method: 'DELETE', params }),
 	stream: (path: string, options?: RequestOptions & { signal?: AbortSignal }) =>

@@ -11,3 +11,4 @@ export { modelApi, ttsModelApi } from './model';
 export { taskApi } from './task';
 export { userApi } from './user';
 export type { UserRecord, UserListItem, AgentAssignment } from './user';
+export { wikiApi } from './wiki';

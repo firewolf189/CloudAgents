@@ -15,7 +15,7 @@ export interface MessagesResponse {
 }
 
 export const sessionApi = {
-	list: (agentId: string) => client.get<SessionListResponse>('/sessions/', { agent_id: agentId }),
+	list: (agentId: string) => client.get<SessionListResponse>('/sessions/', { agent_id: agentId }, { silent: true }),
 
 	create: (body: CreateSessionRequest) => client.post<CreateSessionResponse>('/sessions/', body),
 
@@ -24,6 +24,9 @@ export const sessionApi = {
 
 	delete: (sessionId: string, agentId: string) =>
 		client.delete(`/sessions/${sessionId}`, { agent_id: agentId }),
+
+	cancel: (sessionId: string, agentId: string) =>
+		client.post<{ status: string }>(`/sessions/${sessionId}/cancel`, undefined, { agent_id: agentId }),
 
 	messages: (sessionId: string, agentId: string, offset = 0, limit = 50) =>
 		client.get<MessagesResponse>(`/sessions/${sessionId}/messages`, {

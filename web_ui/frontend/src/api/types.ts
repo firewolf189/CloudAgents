@@ -338,6 +338,16 @@ export interface MCPClientStatus extends MCPClient {
 	tools: ToolInfo[];
 }
 
+export interface ToolGroupInfo {
+	name: string;
+	description: string;
+	tools: ToolInfo[];
+}
+
+export interface ToolsOverview {
+	groups: ToolGroupInfo[];
+}
+
 // ─── Skill ────────────────────────────────────────────────────────────────────
 
 export interface Skill {
@@ -350,6 +360,102 @@ export interface Skill {
 
 export interface AddSkillRequest {
 	skill_path: string;
+}
+
+// ─── Wiki ────────────────────────────────────────────────────────────────────
+
+// ─── Wiki ────────────────────────────────────────────────────────────────────
+
+export interface RawDocInfo {
+	filename: string;
+	status: 'pending' | 'ingested' | 'modified';
+	created_at: string;
+	modified_at: string;
+}
+
+export interface WikiPageInfo {
+	title: string;
+	path: string;
+	category: string;
+	tags: string[];
+	sources: string[];
+	created: string;
+	updated: string;
+}
+
+export interface WikiLogEntry {
+	timestamp: string;
+	operation: string;
+	source: string;
+	details: string[];
+}
+
+export interface IngestPageOutput {
+	title: string;
+	content: string;
+	category: string;
+	tags: string[];
+}
+
+export interface IngestResult {
+	pages: IngestPageOutput[];
+	summary: string;
+}
+
+export interface WikiConfig {
+	authorized_agents: string[];
+	chat_model_config?: ChatModelConfig | null;
+}
+
+export interface QueryResult {
+	answer: string;
+	sources: string[];
+	save_as_analysis: boolean;
+	analysis_title: string;
+	analysis_path: string;
+}
+
+export interface BrokenLink {
+	page: string;
+	link: string;
+}
+
+export interface LintResult {
+	orphans: string[];
+	broken_links: BrokenLink[];
+	missing_from_index: string[];
+	empty_dirs: string[];
+	no_sources: string[];
+	total_pages: number;
+	total_issues: number;
+	score: number;
+}
+
+export interface FixLinksResult {
+	pages_created: string[];
+	pages_updated: string[];
+	links_fixed: number;
+	links_total: number;
+	orphans_fixed: number;
+	sources_fixed: number;
+	summary: string;
+}
+
+export interface GraphNode {
+	id: string;
+	title: string;
+	category: string;
+	links: number;
+}
+
+export interface GraphEdge {
+	source: string;
+	target: string;
+}
+
+export interface GraphData {
+	nodes: GraphNode[];
+	edges: GraphEdge[];
 }
 
 // ─── Schedule ─────────────────────────────────────────────────────────────────

@@ -1,5 +1,5 @@
-import { client, getBaseUrl, getUserId } from './client';
-import type { AddSkillRequest, FileEntry, MCPClient, MCPClientStatus, Skill } from './types';
+import { client, getBaseUrl, getUserId, getAuthToken } from './client';
+import type { AddSkillRequest, FileEntry, MCPClient, MCPClientStatus, Skill, ToolsOverview } from './types';
 
 interface InstallSkillRequest {
 	source: string;
@@ -13,6 +13,14 @@ interface InstallSkillResponse {
 }
 
 export const workspaceApi = {
+	tools: {
+		list: (agentId: string, sessionId: string) =>
+			client.get<ToolsOverview>('/workspace/tools', {
+				agent_id: agentId,
+				session_id: sessionId,
+			}),
+	},
+
 	mcp: {
 		list: (agentId: string, sessionId: string) =>
 			client.get<MCPClientStatus[]>('/workspace/mcp', {
@@ -58,9 +66,14 @@ export const workspaceApi = {
 			url.searchParams.set('session_id', sessionId);
 			const form = new FormData();
 			form.append('file', file);
+			const headers: Record<string, string> = { 'X-User-ID': getUserId() };
+			const token = getAuthToken();
+			if (token) {
+				headers['Authorization'] = `Bearer ${token}`;
+			}
 			const res = await fetch(url.toString(), {
 				method: 'POST',
-				headers: { 'X-User-ID': getUserId() },
+				headers,
 				body: form,
 			});
 			if (!res.ok) {

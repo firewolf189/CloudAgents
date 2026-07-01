@@ -53,7 +53,7 @@ function getDefaultForm() {
 		endDate: undefined as Date | undefined,
 		agentId: '',
 		chatModelConfig: null as ChatModelConfig | null,
-		permissionMode: 'dont_ask' as PermissionMode,
+		permissionMode: 'bypass' as PermissionMode,
 		timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
 		stateful: false,
 	};

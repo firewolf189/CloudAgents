@@ -166,9 +166,10 @@ export function useMessages(
 			// 1. Fetch persisted history
 			setLoading(true);
 			try {
-				const { messages } = await sessionApi.messages(sessionId, agentId);
+				const { messages, is_running } = await sessionApi.messages(sessionId, agentId);
 				if (cancelled) return;
 				msgsRef.current = messages;
+				if (is_running) setStreaming(true);
 				scheduleUpdate();
 			} catch (e) {
 				if (!cancelled) setError(e as Error);
@@ -280,5 +281,24 @@ export function useMessages(
 		abortRef.current?.abort();
 	}, []);
 
-	return { msgs, loading, streaming, error, send, onUserConfirm, abort };
+	/** Cancel the in-flight chat run on the backend. */
+	const cancel = useCallback(async () => {
+		if (!agentId || !sessionId) return;
+		try {
+			await sessionApi.cancel(sessionId, agentId);
+		} catch {
+			// best-effort
+		}
+		if (currentReplyRef.current) {
+			const cancelled = { ...currentReplyRef.current, finished_at: new Date().toISOString() };
+			msgsRef.current = msgsRef.current.map((m) =>
+				m.id === cancelled.id ? cancelled : m,
+			);
+			currentReplyRef.current = null;
+		}
+		setStreaming(false);
+		scheduleUpdate();
+	}, [agentId, sessionId, scheduleUpdate]);
+
+	return { msgs, loading, streaming, error, send, onUserConfirm, abort, cancel };
 }

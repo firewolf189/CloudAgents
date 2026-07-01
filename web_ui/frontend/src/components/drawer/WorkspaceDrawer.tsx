@@ -1,7 +1,7 @@
-import { Search, Trash, PlusCircle, Pencil } from 'lucide-react';
+import { Search, Trash, PlusCircle, Pencil, ChevronRight } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 
-import type { MCPClient, MCPClientStatus, Skill } from '@/api';
+import type { MCPClient, MCPClientStatus, Skill, ToolGroupInfo } from '@/api';
 import { AddSkillDialog } from '@/components/dialog/AddSkillDialog.tsx';
 import { DeleteDialog } from '@/components/dialog/DeleteDialog.tsx';
 import { EditMCPDialog } from '@/components/dialog/EditMCPDialog.tsx';
@@ -19,6 +19,7 @@ import {
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
 import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from '@/components/ui/item';
 import { Kbd, KbdGroup } from '@/components/ui/kbd';
+import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs.tsx';
 import { useTranslation } from '@/i18n/useI18n.ts';
 
@@ -35,6 +36,8 @@ interface WorkspaceDrawerProps {
 	onInstallSkill?: (source: string, skill?: string) => Promise<{ success: boolean; output: string; error: string | null }>;
 	onUploadSkill?: (file: File) => Promise<void>;
 	onRemoveSkill: (name: string) => Promise<void>;
+	toolGroups: ToolGroupInfo[];
+	toolsLoading?: boolean;
 }
 
 export function WorkspaceDrawer({
@@ -50,6 +53,8 @@ export function WorkspaceDrawer({
 	onInstallSkill,
 	onUploadSkill,
 	onRemoveSkill,
+	toolGroups,
+	toolsLoading = false,
 }: WorkspaceDrawerProps) {
 	const { t } = useTranslation();
 	const [open, setOpen] = useState(false);
@@ -62,6 +67,8 @@ export function WorkspaceDrawer({
 	const [editTarget, setEditTarget] = useState<MCPClientStatus | null>(null);
 	const [skillDeleteOpen, setSkillDeleteOpen] = useState(false);
 	const [skillDeleteTarget, setSkillDeleteTarget] = useState<string | null>(null);
+	const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+	const [disabledGroups, setDisabledGroups] = useState<Set<string>>(new Set());
 
 	const filtered = search
 		? mcps.filter((m) => m.name.toLowerCase().includes(search.toLowerCase()))
@@ -76,14 +83,15 @@ export function WorkspaceDrawer({
 			<DrawerTrigger asChild>{children}</DrawerTrigger>
 			<DrawerContent>
 				<DrawerHeader>
-					<DrawerTitle>MCP & Skills</DrawerTitle>
-					<DrawerDescription>管理 MCP 服务器和技能。</DrawerDescription>
+					<DrawerTitle>Toolbox</DrawerTitle>
+					<DrawerDescription>{t('workspace.drawerDescription')}</DrawerDescription>
 				</DrawerHeader>
 				<div className="flex flex-col no-scrollbar overflow-y-auto px-4 gap-y-2">
 					<Tabs defaultValue="mcp" onValueChange={setActiveTab}>
 						<TabsList className={'w-full'}>
 							<TabsTrigger value={'mcp'}>MCP</TabsTrigger>
 							<TabsTrigger value={'skill'}>SKILL</TabsTrigger>
+							<TabsTrigger value={'tools'}>TOOLS</TabsTrigger>
 						</TabsList>
 						<TabsContent value={'mcp'} asChild>
 							<div className="flex flex-col no-scrollbar overflow-y-auto gap-y-2">
@@ -205,6 +213,87 @@ export function WorkspaceDrawer({
 								)}
 							</div>
 						</TabsContent>
+						<TabsContent value={'tools'} asChild>
+							<div className="flex flex-col no-scrollbar overflow-y-auto gap-y-2">
+								<span className={'text-muted-foreground text-sm'}>
+									{t('workspace.toolsDescription')}
+								</span>
+								{toolsLoading ? (
+									<p className="text-muted-foreground text-sm text-center py-4">
+										Loading…
+									</p>
+								) : toolGroups.length === 0 ? (
+									<p className="text-muted-foreground text-sm text-center py-4">
+										{t('workspace.noTools')}
+									</p>
+								) : (
+									toolGroups.map((group) => {
+										const isCollapsed = collapsedGroups.has(group.name);
+										const isDisabled = disabledGroups.has(group.name);
+										const isBasic = group.name === 'basic';
+										return (
+											<div key={group.name} className="border rounded-lg overflow-hidden">
+												<div
+													className="flex items-center gap-2 px-3 py-2 bg-muted/30 cursor-pointer select-none"
+													onClick={() => {
+														setCollapsedGroups((prev) => {
+															const next = new Set(prev);
+															if (next.has(group.name)) next.delete(group.name);
+															else next.add(group.name);
+															return next;
+														});
+													}}
+												>
+													<ChevronRight
+														className={`size-3.5 transition-transform shrink-0 ${!isCollapsed ? 'rotate-90' : ''}`}
+													/>
+													<div className="flex-1 min-w-0">
+														<div className="text-sm font-medium">{group.name}</div>
+														<div className="text-xs text-muted-foreground truncate">
+															{group.description}
+														</div>
+													</div>
+													<KbdGroup>
+														<Kbd>{group.tools.length}</Kbd>
+													</KbdGroup>
+													{!isBasic && (
+														<Switch
+															checked={!isDisabled}
+															onCheckedChange={(checked) => {
+																setDisabledGroups((prev) => {
+																	const next = new Set(prev);
+																	if (checked) next.delete(group.name);
+																	else next.add(group.name);
+																	return next;
+																});
+															}}
+															onClick={(e) => e.stopPropagation()}
+														/>
+													)}
+												</div>
+												{!isCollapsed && (
+													<div className="divide-y">
+														{group.tools.map((tool) => (
+															<div
+																key={tool.name}
+																className={`px-4 py-2 ${isDisabled ? 'opacity-40' : ''}`}
+															>
+																<div className="text-sm font-mono">{tool.name}</div>
+																{tool.description && (
+																	<div className="text-xs text-muted-foreground mt-0.5">
+																		{tool.description}
+																	</div>
+																)}
+															</div>
+														))}
+													</div>
+												)}
+											</div>
+										);
+									})
+								)}
+							</div>
+						</TabsContent>
 					</Tabs>
 				</div>
 
@@ -216,14 +305,14 @@ export function WorkspaceDrawer({
 								Add MCP
 							</Button>
 						</CreateMCPDialog>
-					) : (
+					) : activeTab === 'skill' ? (
 						<AddSkillDialog onInstall={onInstallSkill} onUpload={onUploadSkill}>
 							<Button variant="default">
 								<PlusCircle />
 								Add Skill
 							</Button>
 						</AddSkillDialog>
-					)}
+					) : null}
 				</DrawerFooter>
 			</DrawerContent>
 			<DeleteDialog

@@ -16,6 +16,7 @@ from ._model import (
     SessionConfig,
     SessionSource,
     TeamRecord,
+    WikiConfig,
 )
 from ._utils import _dump_with_secrets
 from ...credential import CredentialBase
@@ -73,6 +74,8 @@ class RedisStorage(StorageBase):
 
         team: str = "agentscope:user:{user_id}:team:{team_id}"
         team_index: str = "agentscope:user:{user_id}:teams"
+
+        wiki_config: str = "agentscope:user:{user_id}:wiki:config"
 
     def __init__(
         self,
@@ -1145,3 +1148,33 @@ class RedisStorage(StorageBase):
         index_key = self._key(self.key_config.team_index, user_id=user_id)
         await self._client.srem(index_key, team_id)
         return bool(existed)
+
+    # ------------------------------------------------------------------
+    # Wiki config (content lives on the file system)
+    # ------------------------------------------------------------------
+
+    async def get_wiki_config(
+        self,
+        user_id: str,
+    ) -> WikiConfig:
+        """Fetch the wiki access configuration."""
+        key = self._key(
+            self.key_config.wiki_config,
+            user_id=user_id,
+        )
+        raw = await self._client.get(key)
+        if not raw:
+            return WikiConfig()
+        return WikiConfig.model_validate_json(raw)
+
+    async def upsert_wiki_config(
+        self,
+        user_id: str,
+        config: WikiConfig,
+    ) -> None:
+        """Persist the wiki access configuration."""
+        key = self._key(
+            self.key_config.wiki_config,
+            user_id=user_id,
+        )
+        await self._set_with_ttl(key, config.model_dump_json())

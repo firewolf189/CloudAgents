@@ -557,3 +557,12 @@ class RedisMessageBus(MessageBus):
         """
         result = await self._client.exists(key)
         return bool(result)
+
+    async def force_release_lock(self, key: str) -> None:
+        """Unconditionally delete the lock key from Redis.
+
+        Args:
+            key (`str`):
+                Lock identifier.
+        """
+        await self._client.delete(key)

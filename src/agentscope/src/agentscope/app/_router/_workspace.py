@@ -50,6 +50,20 @@ class MCPClientStatus(MCPClient):
     tools: list[ToolInfo] = Field(default_factory=list)
 
 
+class ToolGroupInfo(BaseModel):
+    """A tool group with its tools."""
+
+    name: str
+    description: str = ""
+    tools: list[ToolInfo] = Field(default_factory=list)
+
+
+class ToolsOverview(BaseModel):
+    """All tool groups available to an agent session."""
+
+    groups: list[ToolGroupInfo] = Field(default_factory=list)
+
+
 async def _resolve_workspace(
     user_id: str,
     agent_id: str,
@@ -285,3 +299,175 @@ async def remove_skill(
         workspace_manager,
     )
     await workspace.remove_skill(skill_name)
+
+
+# ---------------------------------------------------------------------------
+# Tools overview endpoint
+# ---------------------------------------------------------------------------
+
+_WIKI_TOOLS = [
+    ToolInfo(
+        name="WikiList",
+        description="List all pages in the wiki.",
+    ),
+    ToolInfo(
+        name="WikiRead",
+        description="Read a wiki page by path.",
+    ),
+    ToolInfo(
+        name="WikiWrite",
+        description="Create or update a wiki page.",
+    ),
+    ToolInfo(
+        name="WikiSearch",
+        description="Search wiki with multi-keyword support, "
+        "returns top matches with full content.",
+    ),
+    ToolInfo(
+        name="WikiListRaw",
+        description="List raw source documents.",
+    ),
+    ToolInfo(
+        name="WikiReadRaw",
+        description="Read a raw source document.",
+    ),
+    ToolInfo(
+        name="WikiLog",
+        description="Read wiki operation log — recent ingests, "
+        "queries, lints, and fixes.",
+    ),
+    ToolInfo(
+        name="WikiSaveRaw",
+        description="Save a new document to raw/ directory.",
+    ),
+    ToolInfo(
+        name="WikiIngest",
+        description="Ingest a raw document into wiki pages via LLM.",
+    ),
+    ToolInfo(
+        name="WikiLint",
+        description="Run a health check on the wiki.",
+    ),
+]
+
+_PLANNING_TOOLS = [
+    ToolInfo(name="TaskCreate", description="Create a task."),
+    ToolInfo(name="TaskList", description="List all tasks."),
+    ToolInfo(name="TaskGet", description="Get a task by ID."),
+    ToolInfo(name="TaskUpdate", description="Update a task."),
+]
+
+_SCHEDULE_TOOLS = [
+    ToolInfo(
+        name="ScheduleCreate",
+        description="Create a cron schedule.",
+    ),
+    ToolInfo(
+        name="ScheduleList",
+        description="List all schedules.",
+    ),
+    ToolInfo(
+        name="ScheduleView",
+        description="View a schedule's details.",
+    ),
+    ToolInfo(
+        name="ScheduleDelete",
+        description="Delete a schedule.",
+    ),
+]
+
+_TEAM_TOOLS = [
+    ToolInfo(
+        name="TeamCreate",
+        description="Create a multi-agent team.",
+    ),
+    ToolInfo(
+        name="AgentCreate",
+        description="Add an agent to the team.",
+    ),
+    ToolInfo(
+        name="TeamSay",
+        description="Send a message within the team.",
+    ),
+    ToolInfo(
+        name="TeamDelete",
+        description="Dissolve the team.",
+    ),
+]
+
+
+@workspace_router.get("/tools")
+async def list_tools(
+    agent_id: str = Query(...),
+    session_id: str = Query(...),
+    user_id: str = Depends(get_current_user_id),
+    storage: StorageBase = Depends(get_storage),
+    workspace_manager: WorkspaceManagerBase = Depends(
+        get_workspace_manager,
+    ),
+) -> ToolsOverview:
+    """Return all tool groups available to this agent session."""
+    workspace = await _resolve_workspace(
+        user_id,
+        agent_id,
+        session_id,
+        storage,
+        workspace_manager,
+    )
+
+    groups: list[ToolGroupInfo] = []
+
+    def _short_desc(desc: str) -> str:
+        """Extract the first sentence from a tool description."""
+        line = desc.strip().split("\n")[0].strip()
+        for sep in (". ", "。"):
+            idx = line.find(sep)
+            if idx != -1:
+                return line[: idx + 1]
+        return line[:120]
+
+    # 1. Basic group — workspace built-in tools + planning tools
+    ws_tools = await workspace.list_tools()
+    basic_tools = [
+        ToolInfo(name=t.name, description=_short_desc(t.description))
+        for t in ws_tools
+    ] + _PLANNING_TOOLS
+    groups.append(ToolGroupInfo(
+        name="basic",
+        description="Built-in workspace tools and planning tools.",
+        tools=basic_tools,
+    ))
+
+    # 2. Wiki tools — available to all agents
+    groups.append(ToolGroupInfo(
+        name="wiki_tools",
+        description=(
+            "Tools for reading and writing this agent's "
+            "Wiki knowledge base."
+        ),
+        tools=_WIKI_TOOLS,
+    ))
+
+    # 3. Schedule tools — if session has a model config
+    session_record = await storage.get_session(
+        user_id, agent_id, session_id,
+    )
+    if (
+        session_record is not None
+        and session_record.config.chat_model_config is not None
+    ):
+        groups.append(ToolGroupInfo(
+            name="schedule_tools",
+            description="Tools for managing cron schedules.",
+            tools=_SCHEDULE_TOOLS,
+        ))
+
+    # 4. Team tools
+    groups.append(ToolGroupInfo(
+        name="team_tools",
+        description="Tools for creating and managing multi-agent teams.",
+        tools=_TEAM_TOOLS,
+    ))
+
+    return ToolsOverview(groups=groups)
+

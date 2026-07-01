@@ -232,9 +232,9 @@ const ChatPageInner = () => {
 	return (
 		<div className="flex h-full w-full">
 			<div
-				className={`shrink-0 border-r transition-all duration-200 overflow-hidden ${sidebarOpen ? 'w-64' : 'w-0 border-r-0'}`}
+				className={`shrink-0 border-r transition-all duration-200 overflow-hidden ${sidebarOpen ? 'w-52' : 'w-0 border-r-0'}`}
 			>
-				<Sidebar collapsible="none" className="w-64">
+				<Sidebar collapsible="none" className="w-52">
 					<SidebarHeader>
 						<div className="flex flex-col gap-y-2">
 							<div className="flex items-center justify-between">

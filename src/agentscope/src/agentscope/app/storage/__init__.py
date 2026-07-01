@@ -19,6 +19,7 @@ from ._model import (
     TeamData,
     TeamRecord,
     UserRecord,
+    WikiConfig,
 )
 
 __all__ = [
@@ -40,4 +41,5 @@ __all__ = [
     "ScheduleData",
     "ScheduleRecord",
     "ScheduleSource",
+    "WikiConfig",
 ]

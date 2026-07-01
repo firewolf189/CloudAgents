@@ -8,6 +8,7 @@ from ._session import session_router
 from ._model import model_router
 from ._tts_model import tts_model_router
 from ._workspace import workspace_router
+from ._wiki import wiki_router
 
 __all__ = [
     "agent_router",
@@ -18,4 +19,5 @@ __all__ = [
     "schedule_router",
     "session_router",
     "workspace_router",
+    "wiki_router",
 ]

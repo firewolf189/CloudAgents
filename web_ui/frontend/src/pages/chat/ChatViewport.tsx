@@ -2,7 +2,7 @@ import type { TaskContext } from '@agentscope-ai/agentscope/state';
 import { FolderOpen, Toolbox } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import type { ChatModelConfig, TTSModelConfig } from '@/api';
+import type { ChatModelConfig, TTSModelConfig, Skill } from '@/api';
 import { sessionApi } from '@/api';
 import { ChatContent } from '@/components/chat/ChatContent.tsx';
 import { TaskPanel } from '@/components/chat/TaskPanel';
@@ -67,6 +67,7 @@ export function ChatViewport({ agentId, sessionId, onTeamUpdated }: ChatViewport
 	const [credentialOpen, setCredentialOpen] = useState(false);
 	const [credentialRefetchTrigger, setCredentialRefetchTrigger] = useState(0);
 	const [tasksContext, setTasksContext] = useState<TaskContext | null>(null);
+	const [selectedSkill, setSelectedSkill] = useState<Skill | null>(null);
 
 	const handleStateUpdated = useCallback((value: Record<string, unknown>) => {
 		if (value.tasks_context) {
@@ -75,7 +76,7 @@ export function ChatViewport({ agentId, sessionId, onTeamUpdated }: ChatViewport
 		// TODO: handle permission_context updates when permission UI is built
 	}, []);
 
-	const { msgs, streaming, send, onUserConfirm } = useMessages(agentId, sessionId, {
+	const { msgs, streaming, send, onUserConfirm, cancel } = useMessages(agentId, sessionId, {
 		onTeamUpdated: handleTeamUpdated,
 		onStateUpdated: handleStateUpdated,
 	});
@@ -91,6 +92,8 @@ export function ChatViewport({ agentId, sessionId, onTeamUpdated }: ChatViewport
 		removeSkill,
 		installSkill,
 		uploadSkill,
+		toolGroups,
+		toolsLoading,
 	} = useWorkspace(agentId, sessionId);
 
 	const view = sessions.find((v) => v.session.id === sessionId) ?? null;
@@ -326,10 +329,12 @@ export function ChatViewport({ agentId, sessionId, onTeamUpdated }: ChatViewport
 							onInstallSkill={installSkill}
 							onUploadSkill={uploadSkill}
 							onRemoveSkill={removeSkill}
+							toolGroups={toolGroups}
+							toolsLoading={toolsLoading}
 						>
 							<Button size="sm" variant="ghost" className="gap-1.5 data-[state=open]:bg-blue-100 data-[state=open]:text-blue-600 dark:data-[state=open]:bg-blue-900/30 dark:data-[state=open]:text-blue-400">
 								<Toolbox className="size-4" />
-								<span className="text-xs text-muted-foreground">MCP & Skills</span>
+								<span className="text-xs text-muted-foreground">Toolbox</span>
 							</Button>
 						</WorkspaceDrawer>
 							<WorkspaceFilesDrawer agentId={agentId} sessionId={sessionId}>
@@ -355,7 +360,11 @@ export function ChatViewport({ agentId, sessionId, onTeamUpdated }: ChatViewport
 							sending={streaming}
 							disabled={selectedModel === null}
 							onSend={send}
+							onCancel={cancel}
 							onUserConfirm={onUserConfirm}
+							skills={skills}
+							selectedSkill={selectedSkill}
+							onSkillChange={setSelectedSkill}
 							allowedInputTypes={
 								selectedModelCard?.input_types?.length
 									? selectedModelCard.input_types.filter(

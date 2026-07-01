@@ -87,10 +87,9 @@ class ScheduleData(BaseModel):
 
     permission_mode: PermissionMode = Field(
         title="Permission mode",
-        default=PermissionMode.DONT_ASK,
+        default=PermissionMode.BYPASS,
         description="Permission level for the agent during scheduled "
-        "execution. Defaults to DONT_ASK since no user is present to "
-        "answer prompts.",
+        "execution. Defaults to BYPASS for unattended execution.",
     )
 
     source: ScheduleSource = Field(

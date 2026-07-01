@@ -525,3 +525,34 @@ class StorageBase(ABC):
                 ``True`` if the team record existed and was deleted,
                 ``False`` if not found.
         """
+
+    # ------------------------------------------------------------------
+    # Wiki config (content lives on the file system, only config in Redis)
+    # ------------------------------------------------------------------
+
+    @abstractmethod
+    async def get_wiki_config(
+        self,
+        user_id: str,
+    ) -> "WikiConfig":
+        """Fetch the wiki access configuration.
+
+        Args:
+            user_id (`str`): Owner user id.
+
+        Returns:
+            `WikiConfig`: The config (defaults if not set).
+        """
+
+    @abstractmethod
+    async def upsert_wiki_config(
+        self,
+        user_id: str,
+        config: "WikiConfig",
+    ) -> None:
+        """Persist the wiki access configuration.
+
+        Args:
+            user_id (`str`): Owner user id.
+            config (`WikiConfig`): The config to save.
+        """

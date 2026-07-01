@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
 
 from ..deps import (
+    get_chat_run_registry,
     get_current_user_id,
     get_message_bus,
     get_session_service,
@@ -25,6 +26,7 @@ from ._schema import (
     UpdateSessionRequest,
 )
 from ..message_bus import MessageBus
+from .._manager import ChatRunRegistry
 from .._service import SessionService
 from ..storage import (
     AgentRecord,
@@ -286,6 +288,68 @@ async def delete_session(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Session '{session_id}' not found.",
         )
+
+
+@session_router.post(
+    "/{session_id}/cancel",
+    summary="Cancel a running chat session",
+)
+async def cancel_session(
+    session_id: str,
+    agent_id: str = Query(description="Agent the session belongs to."),
+    user_id: str = Depends(get_current_user_id),
+    session_service: SessionService = Depends(get_session_service),
+    chat_run_registry: "ChatRunRegistry" = Depends(get_chat_run_registry),
+    message_bus: MessageBus = Depends(get_message_bus),
+) -> dict:
+    """Cancel any in-flight chat run for the given session.
+
+    Broadcasts a cancel via the message bus (cross-process) and
+    directly cancels the local asyncio task (same-process). Waits
+    up to 5 seconds for the task to finish, then force-removes it
+    from the registry and releases the distributed lock so the
+    session is unblocked regardless.
+
+    Args:
+        session_id (`str`): The session to cancel.
+        agent_id (`str`): The agent the session belongs to.
+        user_id (`str`): Injected authenticated user ID.
+        session_service (`SessionService`): Injected session service.
+        chat_run_registry (`ChatRunRegistry`): Local task registry.
+        message_bus (`MessageBus`): Injected message bus.
+
+    Returns:
+        `dict`: ``{"status": "cancelled"}``.
+    """
+    # 1. Broadcast cancel on the bus (cross-process) and wait for
+    #    the distributed lock to clear.
+    lock_released = await session_service.cancel_session_run(
+        session_id,
+        timeout=5.0,
+    )
+
+    # 2. Direct local cancel + force-clean the registry so the
+    #    session is never permanently stuck.
+    task = chat_run_registry.get(session_id)
+    if task is not None and not task.done():
+        task.cancel()
+        try:
+            await asyncio.wait_for(asyncio.shield(task), timeout=2.0)
+        except (asyncio.CancelledError, asyncio.TimeoutError, Exception):
+            pass
+
+    # Force-remove from registry if still stuck.
+    if chat_run_registry.get(session_id) is not None:
+        chat_run_registry._tasks.pop(session_id, None)
+
+    # 3. If the distributed lock is still held (task refused to
+    #    unwind in time), force-release it so the next chat run can
+    #    acquire it immediately instead of blocking forever.
+    if not lock_released:
+        if await message_bus.session_is_running(session_id):
+            await message_bus.session_force_release(session_id)
+
+    return {"status": "cancelled"}
 
 
 @session_router.patch(

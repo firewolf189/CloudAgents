@@ -1,5 +1,5 @@
 import type { ContentBlock, TextBlock } from '@agentscope-ai/agentscope/message';
-import { Paperclip, Send, Loader2, X } from 'lucide-react';
+import { Paperclip, Send, Square, Loader2, X, Wand2 } from 'lucide-react';
 import React, {
 	useState,
 	useRef,
@@ -11,6 +11,8 @@ import React, {
 
 import { Button } from '../ui/button';
 import { Kbd } from '../ui/kbd';
+import type { Skill } from '@/api';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useTranslation } from '@/i18n/useI18n.ts';
 import { cn } from '@/lib/utils';
@@ -33,7 +35,12 @@ interface TextInputProps {
 	placeholder?: string;
 	autoComplete?: (input: string) => string | null;
 	disabled?: boolean;
+	streaming?: boolean;
+	onCancel?: () => void;
 	className?: string;
+	skills?: Skill[];
+	selectedSkill?: Skill | null;
+	onSkillChange?: (skill: Skill | null) => void;
 	/**
 	 * Controls which file types the file picker accepts.
 	 * Uses standard MIME types and file extensions, e.g.:
@@ -79,7 +86,12 @@ export const TextInput = forwardRef<TextInputRef, TextInputProps>(
 			placeholder,
 			autoComplete,
 			disabled = false,
+			streaming = false,
+			onCancel,
 			className,
+			skills,
+			selectedSkill,
+			onSkillChange,
 			allowedInputTypes,
 			fileProcessor,
 		},
@@ -144,15 +156,18 @@ export const TextInput = forwardRef<TextInputRef, TextInputProps>(
 
 			const blocks: ContentBlock[] = [];
 
-			// Add text block
-			if (value.trim()) {
-				const textBlock: TextBlock = {
-					id: crypto.randomUUID?.() ?? Math.random().toString(36).slice(2),
-					type: 'text',
-					text: value.trim(),
-				};
-				blocks.push(textBlock);
-			}
+			// Build text content, prepending skill instruction if selected
+			const userText = value.trim();
+			const finalText = selectedSkill
+				? `[Use skill "${selectedSkill.name}". Read the skill instructions first with the SkillViewer tool.]\n\n${userText}`
+				: userText;
+
+			const textBlock: TextBlock = {
+				id: crypto.randomUUID?.() ?? Math.random().toString(36).slice(2),
+				type: 'text',
+				text: finalText,
+			};
+			blocks.push(textBlock);
 
 			// Add processed file blocks (skip errored ones)
 			files.forEach((f) => {
@@ -160,6 +175,10 @@ export const TextInput = forwardRef<TextInputRef, TextInputProps>(
 					blocks.push(f.block);
 				}
 			});
+
+			if (selectedSkill) {
+				onSkillChange?.(null);
+			}
 
 			onSend?.(blocks);
 			setValue('');
@@ -218,6 +237,20 @@ export const TextInput = forwardRef<TextInputRef, TextInputProps>(
 				)}
 				data-tour="chat-input"
 			>
+				{/* Skill badge */}
+				{selectedSkill && (
+					<div className="flex items-center gap-1.5 rounded-md bg-blue-50 dark:bg-blue-950/40 px-2.5 py-1 text-xs text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 w-fit">
+						<Wand2 className="size-3 shrink-0" />
+						<span className="font-medium">{t('textInput.skillUsing')}: {selectedSkill.name}</span>
+						<button
+							onClick={() => onSkillChange?.(null)}
+							className="text-blue-400 hover:text-blue-600 dark:hover:text-blue-200"
+						>
+							<X className="size-3" />
+						</button>
+					</div>
+				)}
+
 				{/* File list */}
 				{files.length > 0 && (
 					<div className="flex flex-wrap gap-2">
@@ -330,21 +363,78 @@ export const TextInput = forwardRef<TextInputRef, TextInputProps>(
 								</TooltipContent>
 							</Tooltip>
 
-							{/* Send button */}
-							<Tooltip>
-								<TooltipTrigger asChild>
-									<Button
-										type="button"
-										onClick={handleSend}
-										disabled={disabled || !value.trim() || hasProcessing}
-										size="icon"
-										className="shrink-0 rounded-full"
-									>
-										<Send className="h-4 w-4" />
-									</Button>
-								</TooltipTrigger>
-								<TooltipContent>{t('textInput.send')}</TooltipContent>
-							</Tooltip>
+							{/* Skill picker button */}
+							{skills && skills.length > 0 && (
+								<Popover>
+									<Tooltip>
+										<TooltipTrigger asChild>
+											<PopoverTrigger asChild>
+												<Button
+													type="button"
+													variant={selectedSkill ? 'default' : 'ghost'}
+													size="icon"
+													className="shrink-0 rounded-full"
+												>
+													<Wand2 className="h-4 w-4" />
+												</Button>
+											</PopoverTrigger>
+										</TooltipTrigger>
+										<TooltipContent>{t('textInput.skill')}</TooltipContent>
+									</Tooltip>
+									<PopoverContent align="end" className="w-64 p-1">
+										<div className="max-h-48 overflow-y-auto">
+											{skills.map((skill) => (
+												<button
+													key={skill.name}
+													onClick={() => onSkillChange?.(
+														selectedSkill?.name === skill.name ? null : skill,
+													)}
+													className={cn(
+														'w-full text-left px-3 py-2 rounded-sm text-sm hover:bg-accent transition-colors',
+														selectedSkill?.name === skill.name && 'bg-accent',
+													)}
+												>
+													<div className="font-medium truncate">{skill.name}</div>
+													<div className="text-xs text-muted-foreground truncate">{skill.description}</div>
+												</button>
+											))}
+										</div>
+									</PopoverContent>
+								</Popover>
+							)}
+
+							{/* Send / Stop button */}
+							{streaming ? (
+								<Tooltip>
+									<TooltipTrigger asChild>
+										<Button
+											type="button"
+											onClick={onCancel}
+											size="icon"
+											variant="destructive"
+											className="shrink-0 rounded-full"
+										>
+											<Square className="h-4 w-4" />
+										</Button>
+									</TooltipTrigger>
+									<TooltipContent>{t('textInput.stop')}</TooltipContent>
+								</Tooltip>
+							) : (
+								<Tooltip>
+									<TooltipTrigger asChild>
+										<Button
+											type="button"
+											onClick={handleSend}
+											disabled={disabled || !value.trim() || hasProcessing}
+											size="icon"
+											className="shrink-0 rounded-full"
+										>
+											<Send className="h-4 w-4" />
+										</Button>
+									</TooltipTrigger>
+									<TooltipContent>{t('textInput.send')}</TooltipContent>
+								</Tooltip>
+							)}
 
 							{/* Hidden file input */}
 							<input

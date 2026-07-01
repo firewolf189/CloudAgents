@@ -11,6 +11,8 @@ Events produced by the agent are not exposed back through this method
 that wants them subscribes through the
 ``GET /sessions/{sid}/stream`` SSE endpoint.
 """
+import asyncio
+
 from fastapi import HTTPException
 
 from ..message_bus import MessageBus
@@ -165,6 +167,12 @@ class ChatService:
         """
         try:
             await self._run_impl(user_id, session_id, agent_id, input_msg)
+        except asyncio.CancelledError:
+            logger.info(
+                "ChatService.run cancelled for session_id=%s",
+                session_id,
+            )
+            raise
         except Exception as e:
             logger.exception(
                 "ChatService.run failed for user_id=%s session_id=%s "
@@ -314,6 +322,14 @@ class ChatService:
         # ----------------------------------------------------------------
         agent_state = session_record.state
         agent_state.session_id = session_id
+
+        # Pre-activate all non-basic tool groups so the agent can use
+        # them immediately without calling reset_tools first.
+        all_group_names = [
+            g.name for g in toolkit.tool_groups if g.name != "basic"
+        ]
+        if all_group_names and not agent_state.tool_context.activated_groups:
+            agent_state.tool_context.activated_groups = all_group_names
         agent = self._agent_cls(
             name=agent_record.data.name,
             system_prompt=agent_record.data.system_prompt,
@@ -368,82 +384,96 @@ class ChatService:
         async with self._message_bus.session_run(session_id):
             reply_msg: Msg | None = None
 
-            if input_msg is None or isinstance(input_msg, (Msg, list)):
-                # Case A: new reply (user message(s), or retrigger with
-                # empty input)
-                if isinstance(input_msg, (Msg, list)):
-                    input_msgs = (
-                        [input_msg]
-                        if isinstance(input_msg, Msg)
-                        else input_msg
+            try:
+                if input_msg is None or isinstance(input_msg, (Msg, list)):
+                    # Case A: new reply (user message(s), or retrigger with
+                    # empty input)
+                    if isinstance(input_msg, (Msg, list)):
+                        input_msgs = (
+                            [input_msg]
+                            if isinstance(input_msg, Msg)
+                            else input_msg
+                        )
+                        for msg in input_msgs:
+                            await self._storage.upsert_message(
+                                user_id,
+                                session_id,
+                                msg,
+                            )
+
+                    async for event in agent.reply_stream(
+                        inputs=input_msg,
+                    ):
+                        await self._message_bus.session_publish_event(
+                            session_id,
+                            event.model_dump(mode="json"),
+                        )
+                        if isinstance(event, ReplyStartEvent):
+                            reply_msg = AssistantMsg(
+                                id=event.reply_id,
+                                name=event.name,
+                                content=[],
+                            )
+                        elif reply_msg is not None:
+                            reply_msg.append_event(event)
+
+                else:
+                    # Case B: continuation (UserConfirmResult /
+                    # ExternalExecResult)
+                    reply_msg = await self._storage.get_message(
+                        user_id,
+                        session_id,
+                        agent.state.reply_id,
                     )
-                    for msg in input_msgs:
+
+                    if reply_msg is None:
+                        logger.warning(
+                            "Reply message %r not found in storage for "
+                            "session %r; tool-call state changes from the "
+                            "incoming event will not be persisted.",
+                            agent.state.reply_id,
+                            session_id,
+                        )
+                    elif input_msg:
+                        reply_msg.append_event(input_msg)
+
+                    async for event in agent.reply_stream(
+                        inputs=input_msg,
+                    ):
+                        await self._message_bus.session_publish_event(
+                            session_id,
+                            event.model_dump(mode="json"),
+                        )
+                        if reply_msg is not None:
+                            reply_msg.append_event(event)
+            except asyncio.CancelledError:
+                raise
+            finally:
+                # Persist even on cancel so the agent state stays in
+                # sync with the message storage. Without this, a
+                # cancelled run leaves stale state that can confuse the
+                # next run.
+                try:
+                    if reply_msg is not None:
                         await self._storage.upsert_message(
                             user_id,
                             session_id,
-                            msg,
+                            reply_msg,
                         )
 
-                async for event in agent.reply_stream(inputs=input_msg):
-                    await self._message_bus.session_publish_event(
-                        session_id,
-                        event.model_dump(mode="json"),
+                    await self._storage.update_session_state(
+                        user_id=user_id,
+                        agent_id=agent_id,
+                        session_id=session_id,
+                        state=agent.state,
                     )
-                    if isinstance(event, ReplyStartEvent):
-                        reply_msg = AssistantMsg(
-                            id=event.reply_id,
-                            name=event.name,
-                            content=[],
-                        )
-                    elif reply_msg is not None:
-                        reply_msg.append_event(event)
-
-            else:
-                # Case B: continuation (UserConfirmResult / ExternalExecResult)
-                reply_msg = await self._storage.get_message(
-                    user_id,
-                    session_id,
-                    agent.state.reply_id,
-                )
-
-                if reply_msg is None:
+                except Exception:
                     logger.warning(
-                        "Reply message %r not found in storage for session "
-                        "%r; tool-call state changes from the incoming event "
-                        "will not be persisted.",
-                        agent.state.reply_id,
+                        "Failed to persist state after cancel for "
+                        "session %s",
                         session_id,
+                        exc_info=True,
                     )
-                elif input_msg:
-                    reply_msg.append_event(input_msg)
-
-                async for event in agent.reply_stream(inputs=input_msg):
-                    await self._message_bus.session_publish_event(
-                        session_id,
-                        event.model_dump(mode="json"),
-                    )
-                    if reply_msg is not None:
-                        reply_msg.append_event(event)
-
-            # Persist the reply Msg (upsert: overwrite if same id, append
-            # if new).
-            if reply_msg is not None:
-                await self._storage.upsert_message(
-                    user_id,
-                    session_id,
-                    reply_msg,
-                )
-
-            # Persist the updated agent state. MUST happen inside the
-            # session lock: if we released the lock first, another
-            # process could acquire it and load a stale state from
-            # storage before this write lands.
-            await self._storage.update_session_state(
-                user_id=user_id,
-                agent_id=agent_id,
-                session_id=session_id,
-                state=agent.state,
-            )
 
         # ``session_run.__aexit__`` trims the replay log before
         # releasing the lock — see :meth:`MessageBus.session_run`.

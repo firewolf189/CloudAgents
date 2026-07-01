@@ -13,6 +13,7 @@ import { CredentialPage } from '@/pages/credential';
 import { SchedulePage } from '@/pages/schedule';
 import { SetupPage } from '@/pages/setup';
 import { UserPage } from '@/pages/user';
+import WikiPage from '@/pages/wiki';
 
 function SetupPageRoute() {
 	const navigate = useNavigate();
@@ -36,6 +37,7 @@ const router = createBrowserRouter([
 				element: <ChatPage />,
 			},
 			{ path: '/schedule', element: <SchedulePage /> },
+			{ path: '/wiki', element: <WikiPage /> },
 			{ path: '/credential', element: <CredentialPage /> },
 			{ path: '/users', element: <UserPage /> },
 		],

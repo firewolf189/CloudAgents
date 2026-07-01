@@ -35,6 +35,11 @@ from ._session import (
     TeamDetailResponse,
     TeamMemberView,
 )
+from ._wiki import (
+    CreateWikiPageRequest,
+    UpdateWikiPageRequest,
+    UpdateWikiConfigRequest,
+)
 
 __all__ = [
     # Agent
@@ -74,4 +79,8 @@ __all__ = [
     "SessionView",
     "TeamDetailResponse",
     "TeamMemberView",
+    # Wiki
+    "CreateWikiPageRequest",
+    "UpdateWikiPageRequest",
+    "UpdateWikiConfigRequest",
 ]

@@ -46,7 +46,7 @@ class CreateScheduleRequest(BaseModel):
     )
 
     permission_mode: PermissionMode = Field(
-        default=PermissionMode.DONT_ASK,
+        default=PermissionMode.BYPASS,
         description="Permission level for the agent during "
         "scheduled execution.",
     )

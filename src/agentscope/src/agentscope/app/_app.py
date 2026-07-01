@@ -13,6 +13,7 @@ from ._router import (
     schedule_router,
     session_router,
     workspace_router,
+    wiki_router,
 )
 from ._types import AgentMiddlewareFactory, AgentToolFactory, SubAgentTemplate
 from .message_bus import MessageBus
@@ -171,6 +172,7 @@ def create_app(
         workspace_router,
         model_router,
         tts_model_router,
+        wiki_router,
     ):
         app.include_router(router)
 
